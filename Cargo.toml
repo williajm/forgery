@@ -17,7 +17,6 @@ crate-type = ["cdylib", "rlib"]
 pyo3 = "0.24"
 rand = "0.9"
 rand_chacha = "0.9"
-uuid = { version = "1.18", features = ["v4", "fast-rng"] }
 
 [features]
 default = []

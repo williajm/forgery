@@ -7,6 +7,7 @@
 
 #![no_main]
 
+use _forgery::Faker;
 use arbitrary::Arbitrary;
 use libfuzzer_sys::fuzz_target;
 
@@ -20,17 +21,14 @@ struct IntegerInput {
 }
 
 fuzz_target!(|input: IntegerInput| {
-    // This would test the internal integer generation if we had access
-    // Since we're fuzzing through the Python interface in practice,
-    // this demonstrates the fuzzing structure.
+    let mut faker = Faker::new_default();
+    faker.seed(input.seed);
 
-    // Validate that the range check works correctly
-    if input.min <= input.max {
-        // Valid range - should not panic
-        // In a real fuzz test, we'd call generate_integers here
-        let _ = input.n;
-    } else {
-        // Invalid range - should return error, not panic
-        // The function should handle this gracefully
-    }
+    // Test single integer generation
+    // Should either succeed or return an error, never panic
+    let _ = faker.integer(input.min, input.max);
+
+    // Test batch integer generation with bounded size
+    let batch_size = (input.n as usize).min(1000); // Cap at 1000 for fuzzing
+    let _ = faker.integers(batch_size, input.min, input.max);
 });

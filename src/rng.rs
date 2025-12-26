@@ -195,8 +195,8 @@ mod tests {
             assert!(*v == 0 || *v == 1);
         }
         // Should have both values in 1000 samples
-        assert!(values.iter().any(|&x| x == 0));
-        assert!(values.iter().any(|&x| x == 1));
+        assert!(values.contains(&0));
+        assert!(values.contains(&1));
     }
 
     #[test]

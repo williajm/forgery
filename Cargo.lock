@@ -248,7 +248,6 @@ dependencies = [
  "pyo3",
  "rand",
  "rand_chacha",
- "uuid",
 ]
 
 [[package]]
@@ -760,18 +759,6 @@ name = "unindent"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7264e107f553ccae879d21fbea1d6724ac785e8c3bfc762137959b5802826ef3"
-
-[[package]]
-name = "uuid"
-version = "1.19.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2e054861b4bd027cd373e18e8d8d8e6548085000e41290d95ce0c373a654b4a"
-dependencies = [
- "getrandom",
- "js-sys",
- "rand",
- "wasm-bindgen",
-]
 
 [[package]]
 name = "wait-timeout"

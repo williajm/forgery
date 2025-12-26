@@ -387,12 +387,14 @@ class TestTypeStubs:
         assert fake is not None
 
     def test_faker_constructor_with_locale(self) -> None:
-        """Faker(locale) should work."""
+        """Faker(locale) should work for supported locales."""
         fake = Faker("en_US")
         assert fake is not None
-        # Other locales should also work (just stored, not used yet)
-        fake2 = Faker("fr_FR")
-        assert fake2 is not None
+
+    def test_faker_constructor_unsupported_locale(self) -> None:
+        """Faker(locale) should raise ValueError for unsupported locales."""
+        with pytest.raises(ValueError, match="unsupported locale"):
+            Faker("fr_FR")
 
     def test_integers_default_params(self) -> None:
         """integers(n) should use default min/max."""

@@ -2,7 +2,8 @@
 //!
 //! Run with: cargo bench
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
+use criterion::{criterion_group, criterion_main, Criterion, Throughput};
+use std::hint::black_box;
 
 // Import the internal modules via the rlib
 use _forgery::Faker;
@@ -16,7 +17,7 @@ fn bench_name_generation(c: &mut Criterion) {
             criterion::BenchmarkId::from_parameter(size),
             size,
             |b, &size| {
-                let mut faker = Faker::new("en_US");
+                let mut faker = Faker::new("en_US").unwrap();
                 faker.seed(42);
                 b.iter(|| {
                     let names = faker.names(black_box(size)).unwrap();
@@ -37,7 +38,7 @@ fn bench_email_generation(c: &mut Criterion) {
             criterion::BenchmarkId::from_parameter(size),
             size,
             |b, &size| {
-                let mut faker = Faker::new("en_US");
+                let mut faker = Faker::new("en_US").unwrap();
                 faker.seed(42);
                 b.iter(|| {
                     let emails = faker.emails(black_box(size)).unwrap();
@@ -58,7 +59,7 @@ fn bench_uuid_generation(c: &mut Criterion) {
             criterion::BenchmarkId::from_parameter(size),
             size,
             |b, &size| {
-                let mut faker = Faker::new("en_US");
+                let mut faker = Faker::new("en_US").unwrap();
                 faker.seed(42);
                 b.iter(|| {
                     let uuids = faker.uuids(black_box(size)).unwrap();
@@ -79,7 +80,7 @@ fn bench_integer_generation(c: &mut Criterion) {
             criterion::BenchmarkId::from_parameter(size),
             size,
             |b, &size| {
-                let mut faker = Faker::new("en_US");
+                let mut faker = Faker::new("en_US").unwrap();
                 faker.seed(42);
                 b.iter(|| {
                     let ints = faker.integers(black_box(size), 0, 1_000_000).unwrap();
@@ -95,25 +96,25 @@ fn bench_single_value_generation(c: &mut Criterion) {
     let mut group = c.benchmark_group("single_value");
 
     group.bench_function("name", |b| {
-        let mut faker = Faker::new("en_US");
+        let mut faker = Faker::new("en_US").unwrap();
         faker.seed(42);
         b.iter(|| black_box(faker.name()));
     });
 
     group.bench_function("email", |b| {
-        let mut faker = Faker::new("en_US");
+        let mut faker = Faker::new("en_US").unwrap();
         faker.seed(42);
         b.iter(|| black_box(faker.email()));
     });
 
     group.bench_function("uuid", |b| {
-        let mut faker = Faker::new("en_US");
+        let mut faker = Faker::new("en_US").unwrap();
         faker.seed(42);
         b.iter(|| black_box(faker.uuid()));
     });
 
     group.bench_function("integer", |b| {
-        let mut faker = Faker::new("en_US");
+        let mut faker = Faker::new("en_US").unwrap();
         faker.seed(42);
         b.iter(|| black_box(faker.integer(0, 100).unwrap()));
     });

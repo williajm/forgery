@@ -252,14 +252,14 @@ mod tests {
         let ints = generate_integers(&mut rng, 1000, -500, 500).unwrap();
         let has_negative = ints.iter().any(|&x| x < 0);
         let has_positive = ints.iter().any(|&x| x > 0);
-        let has_zero = ints.iter().any(|&x| x == 0);
+        let has_zero = ints.contains(&0);
 
         // With 1000 samples in a range of 1001 values, we should likely see all three
         // (though not guaranteed - this is a sanity check)
         assert!(has_negative || has_positive, "Should generate values");
         // Zero might not appear, but the range should work
         assert!(
-            ints.iter().all(|&x| x >= -500 && x <= 500),
+            ints.iter().all(|&x| (-500..=500).contains(&x)),
             "All values in range"
         );
         // Keep has_zero to avoid unused variable warning

@@ -147,8 +147,9 @@ names = [fake.name() for _ in range(10000)]
 **Important**: Forgery is NOT thread-safe.
 
 - Each `Faker` instance has mutable RNG state
-- Sharing a `Faker` across threads causes undefined behavior
-- Create one `Faker` per thread for parallel use
+- Sharing a `Faker` across threads causes non-deterministic output and potential data races
+- Python's GIL serializes calls, so there's no memory unsafety from Python, but results will be unpredictable
+- Create one `Faker` per thread for deterministic, reproducible output
 
 ## Testing Strategy
 

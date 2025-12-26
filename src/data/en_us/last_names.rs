@@ -191,6 +191,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::const_is_empty)]
     fn test_last_names_not_empty() {
         assert!(!LAST_NAMES.is_empty());
         for name in LAST_NAMES {
