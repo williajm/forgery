@@ -17,8 +17,31 @@ mod data;
 mod providers;
 mod rng;
 
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use rng::ForgeryRng;
+
+/// Maximum batch size to prevent memory exhaustion.
+///
+/// This limit is set to 10 million items, which should handle most
+/// reasonable use cases while preventing accidental memory exhaustion.
+const MAX_BATCH_SIZE: usize = 10_000_000;
+
+/// Validate that a batch size is within acceptable limits.
+///
+/// # Errors
+///
+/// Returns `PyValueError` if `n` exceeds `MAX_BATCH_SIZE`.
+#[inline]
+fn validate_batch_size(n: usize) -> PyResult<()> {
+    if n > MAX_BATCH_SIZE {
+        return Err(PyValueError::new_err(format!(
+            "batch size {} exceeds maximum allowed size of {}",
+            n, MAX_BATCH_SIZE
+        )));
+    }
+    Ok(())
+}
 
 /// A fake data generator with its own random state.
 ///
@@ -77,8 +100,13 @@ impl Faker {
     /// # Returns
     ///
     /// A list of full names (first + last)
-    fn names(&mut self, n: usize) -> Vec<String> {
-        providers::names::generate_names(&mut self.rng, n)
+    ///
+    /// # Errors
+    ///
+    /// Returns `ValueError` if `n` exceeds the maximum batch size.
+    fn names(&mut self, n: usize) -> PyResult<Vec<String>> {
+        validate_batch_size(n)?;
+        Ok(providers::names::generate_names(&mut self.rng, n))
     }
 
     /// Generate a batch of random first names.
@@ -86,8 +114,13 @@ impl Faker {
     /// # Arguments
     ///
     /// * `n` - Number of first names to generate
-    fn first_names(&mut self, n: usize) -> Vec<String> {
-        providers::names::generate_first_names(&mut self.rng, n)
+    ///
+    /// # Errors
+    ///
+    /// Returns `ValueError` if `n` exceeds the maximum batch size.
+    fn first_names(&mut self, n: usize) -> PyResult<Vec<String>> {
+        validate_batch_size(n)?;
+        Ok(providers::names::generate_first_names(&mut self.rng, n))
     }
 
     /// Generate a batch of random last names.
@@ -95,8 +128,13 @@ impl Faker {
     /// # Arguments
     ///
     /// * `n` - Number of last names to generate
-    fn last_names(&mut self, n: usize) -> Vec<String> {
-        providers::names::generate_last_names(&mut self.rng, n)
+    ///
+    /// # Errors
+    ///
+    /// Returns `ValueError` if `n` exceeds the maximum batch size.
+    fn last_names(&mut self, n: usize) -> PyResult<Vec<String>> {
+        validate_batch_size(n)?;
+        Ok(providers::names::generate_last_names(&mut self.rng, n))
     }
 
     /// Generate a single random full name.
@@ -125,8 +163,13 @@ impl Faker {
     /// # Arguments
     ///
     /// * `n` - Number of emails to generate
-    fn emails(&mut self, n: usize) -> Vec<String> {
-        providers::internet::generate_emails(&mut self.rng, n)
+    ///
+    /// # Errors
+    ///
+    /// Returns `ValueError` if `n` exceeds the maximum batch size.
+    fn emails(&mut self, n: usize) -> PyResult<Vec<String>> {
+        validate_batch_size(n)?;
+        Ok(providers::internet::generate_emails(&mut self.rng, n))
     }
 
     /// Generate a single random email address.
@@ -143,17 +186,27 @@ impl Faker {
     /// * `n` - Number of integers to generate
     /// * `min` - Minimum value (inclusive)
     /// * `max` - Maximum value (inclusive)
+    ///
+    /// # Errors
+    ///
+    /// Returns `ValueError` if `min > max` or `n` exceeds the maximum batch size.
     #[pyo3(signature = (n, min = 0, max = 100))]
-    fn integers(&mut self, n: usize, min: i64, max: i64) -> Vec<i64> {
+    fn integers(&mut self, n: usize, min: i64, max: i64) -> PyResult<Vec<i64>> {
+        validate_batch_size(n)?;
         providers::numbers::generate_integers(&mut self.rng, n, min, max)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     /// Generate a single random integer within a range.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ValueError` if `min > max`.
     #[pyo3(signature = (min = 0, max = 100))]
-    fn integer(&mut self, min: i64, max: i64) -> i64 {
+    fn integer(&mut self, min: i64, max: i64) -> PyResult<i64> {
         providers::numbers::generate_integers(&mut self.rng, 1, min, max)
-            .pop()
-            .unwrap_or(min)
+            .map(|mut v| v.pop().unwrap_or(min))
+            .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     /// Generate a batch of random UUIDs (version 4).
@@ -161,8 +214,13 @@ impl Faker {
     /// # Arguments
     ///
     /// * `n` - Number of UUIDs to generate
-    fn uuids(&mut self, n: usize) -> Vec<String> {
-        providers::identifiers::generate_uuids(&mut self.rng, n)
+    ///
+    /// # Errors
+    ///
+    /// Returns `ValueError` if `n` exceeds the maximum batch size.
+    fn uuids(&mut self, n: usize) -> PyResult<Vec<String>> {
+        validate_batch_size(n)?;
+        Ok(providers::identifiers::generate_uuids(&mut self.rng, n))
     }
 
     /// Generate a single random UUID (version 4).
@@ -198,8 +256,8 @@ mod tests {
         faker1.seed(42);
         faker2.seed(42);
 
-        let names1 = faker1.names(10);
-        let names2 = faker2.names(10);
+        let names1 = faker1.names(10).unwrap();
+        let names2 = faker2.names(10).unwrap();
 
         assert_eq!(names1, names2);
     }
@@ -209,13 +267,13 @@ mod tests {
         let mut faker = Faker::new("en_US");
         faker.seed(123);
 
-        let names = faker.names(100);
+        let names = faker.names(100).unwrap();
         assert_eq!(names.len(), 100);
 
-        let emails = faker.emails(50);
+        let emails = faker.emails(50).unwrap();
         assert_eq!(emails.len(), 50);
 
-        let ints = faker.integers(200, 0, 1000);
+        let ints = faker.integers(200, 0, 1000).unwrap();
         assert_eq!(ints.len(), 200);
         for i in &ints {
             assert!(*i >= 0 && *i <= 1000);

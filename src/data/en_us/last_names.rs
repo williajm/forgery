@@ -1,6 +1,9 @@
 //! Last names for en_US locale.
 
 /// Common last names in the United States.
+///
+/// This list contains 150+ unique surnames representing the diversity
+/// of American family names.
 pub const LAST_NAMES: &[&str] = &[
     "Smith",
     "Johnson",
@@ -122,22 +125,16 @@ pub const LAST_NAMES: &[&str] = &[
     "Reynolds",
     "Hamilton",
     "Graham",
-    "Kim",
     "Wallace",
     "Woods",
     "Cole",
     "West",
     "Owens",
-    "Reynolds",
-    "Fisher",
     "Ellis",
     "Harrison",
     "Gibson",
     "Mcdonald",
-    "Cruz",
     "Marshall",
-    "Ortiz",
-    "Gomez",
     "Murray",
     "Freeman",
     "Wells",
@@ -152,12 +149,9 @@ pub const LAST_NAMES: &[&str] = &[
     "Henry",
     "Boyd",
     "Mason",
-    "Morales",
     "Kennedy",
     "Warren",
     "Dixon",
-    "Ramos",
-    "Reyes",
     "Burns",
     "Gordon",
     "Shaw",
@@ -180,3 +174,27 @@ pub const LAST_NAMES: &[&str] = &[
     "Perkins",
     "Hudson",
 ];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashSet;
+
+    #[test]
+    fn test_no_duplicate_last_names() {
+        let unique: HashSet<_> = LAST_NAMES.iter().collect();
+        assert_eq!(
+            unique.len(),
+            LAST_NAMES.len(),
+            "Duplicate last names detected"
+        );
+    }
+
+    #[test]
+    fn test_last_names_not_empty() {
+        assert!(!LAST_NAMES.is_empty());
+        for name in LAST_NAMES {
+            assert!(!name.is_empty());
+        }
+    }
+}

@@ -39,6 +39,9 @@ class Faker:
 
         Args:
             n: Number of names to generate.
+
+        Raises:
+            ValueError: If n exceeds the maximum batch size (10 million).
         """
         ...
 
@@ -51,6 +54,9 @@ class Faker:
 
         Args:
             n: Number of first names to generate.
+
+        Raises:
+            ValueError: If n exceeds the maximum batch size (10 million).
         """
         ...
 
@@ -63,6 +69,9 @@ class Faker:
 
         Args:
             n: Number of last names to generate.
+
+        Raises:
+            ValueError: If n exceeds the maximum batch size (10 million).
         """
         ...
 
@@ -76,6 +85,9 @@ class Faker:
 
         Args:
             n: Number of emails to generate.
+
+        Raises:
+            ValueError: If n exceeds the maximum batch size (10 million).
         """
         ...
 
@@ -86,6 +98,9 @@ class Faker:
         Args:
             min: Minimum value (inclusive).
             max: Maximum value (inclusive).
+
+        Raises:
+            ValueError: If min > max.
         """
         ...
 
@@ -96,6 +111,9 @@ class Faker:
             n: Number of integers to generate.
             min: Minimum value (inclusive).
             max: Maximum value (inclusive).
+
+        Raises:
+            ValueError: If min > max or n exceeds the maximum batch size (10 million).
         """
         ...
 
@@ -109,5 +127,8 @@ class Faker:
 
         Args:
             n: Number of UUIDs to generate.
+
+        Raises:
+            ValueError: If n exceeds the maximum batch size (10 million).
         """
         ...

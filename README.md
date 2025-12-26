@@ -79,8 +79,8 @@ fake2.emails(100)
 
 ## Available Generators
 
-| Method | Batch | Single | Description |
-|--------|-------|--------|-------------|
+| Batch | Single | Description |
+|-------|--------|-------------|
 | `names(n)` | `name()` | Full names (first + last) |
 | `first_names(n)` | `first_name()` | First names |
 | `last_names(n)` | `last_name()` | Last names |
@@ -112,6 +112,27 @@ Emails:
 - Each `Faker` instance has its own independent RNG state
 - **Single-threaded determinism only**: Results are reproducible within one thread
 - **No cross-version guarantee**: Output may differ between forgery versions
+
+## Thread Safety
+
+**forgery is NOT thread-safe.** Each `Faker` instance maintains mutable RNG state.
+
+For multi-threaded applications, create one `Faker` instance per thread:
+
+```python
+from concurrent.futures import ThreadPoolExecutor
+from forgery import Faker
+
+def generate_names(seed: int) -> list[str]:
+    fake = Faker()  # Create per-thread instance
+    fake.seed(seed)
+    return fake.names(1000)
+
+with ThreadPoolExecutor(max_workers=4) as executor:
+    results = list(executor.map(generate_names, range(4)))
+```
+
+Do NOT share a `Faker` instance across threads.
 
 ## Development
 

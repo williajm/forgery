@@ -41,8 +41,13 @@ impl ForgeryRng {
     }
 
     /// Choose a random element from a slice.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the slice is empty.
     #[inline]
     pub fn choose<'a, T>(&mut self, slice: &'a [T]) -> &'a T {
+        assert!(!slice.is_empty(), "cannot choose from an empty slice");
         let idx = self.rng.gen_range(0..slice.len());
         &slice[idx]
     }
@@ -101,5 +106,13 @@ mod tests {
         let chosen = rng.choose(&items);
 
         assert!(items.contains(chosen));
+    }
+
+    #[test]
+    #[should_panic(expected = "cannot choose from an empty slice")]
+    fn test_choose_from_empty_slice_panics() {
+        let mut rng = ForgeryRng::new();
+        let empty: &[&str] = &[];
+        rng.choose(empty);
     }
 }

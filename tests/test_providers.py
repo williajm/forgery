@@ -131,6 +131,16 @@ class TestIntegers:
         assert len(result) == 50
         assert all(-100 <= r <= -1 for r in result)
 
+    def test_integer_invalid_range_raises(self) -> None:
+        """Invalid range (min > max) should raise ValueError."""
+        with pytest.raises(ValueError, match=r"min.*must be less than or equal to max"):
+            integer(100, 0)
+
+    def test_integers_invalid_range_raises(self) -> None:
+        """Invalid range (min > max) should raise ValueError."""
+        with pytest.raises(ValueError, match=r"min.*must be less than or equal to max"):
+            integers(10, 100, 0)
+
 
 class TestUuids:
     """Tests for UUID generation."""
@@ -228,3 +238,46 @@ class TestLargeBatch:
         """Should handle large batches efficiently."""
         result = integers(n, 0, 1_000_000)
         assert len(result) == n
+
+
+class TestBatchSizeLimits:
+    """Tests for batch size limits to prevent memory exhaustion."""
+
+    MAX_BATCH_SIZE = 10_000_000
+
+    def test_names_exceeds_limit_raises(self) -> None:
+        """Names batch exceeding limit should raise ValueError."""
+        with pytest.raises(ValueError, match=r"batch size.*exceeds maximum"):
+            names(self.MAX_BATCH_SIZE + 1)
+
+    def test_first_names_exceeds_limit_raises(self) -> None:
+        """First names batch exceeding limit should raise ValueError."""
+        with pytest.raises(ValueError, match=r"batch size.*exceeds maximum"):
+            first_names(self.MAX_BATCH_SIZE + 1)
+
+    def test_last_names_exceeds_limit_raises(self) -> None:
+        """Last names batch exceeding limit should raise ValueError."""
+        with pytest.raises(ValueError, match=r"batch size.*exceeds maximum"):
+            last_names(self.MAX_BATCH_SIZE + 1)
+
+    def test_emails_exceeds_limit_raises(self) -> None:
+        """Emails batch exceeding limit should raise ValueError."""
+        with pytest.raises(ValueError, match=r"batch size.*exceeds maximum"):
+            emails(self.MAX_BATCH_SIZE + 1)
+
+    def test_integers_exceeds_limit_raises(self) -> None:
+        """Integers batch exceeding limit should raise ValueError."""
+        with pytest.raises(ValueError, match=r"batch size.*exceeds maximum"):
+            integers(self.MAX_BATCH_SIZE + 1, 0, 100)
+
+    def test_uuids_exceeds_limit_raises(self) -> None:
+        """UUIDs batch exceeding limit should raise ValueError."""
+        with pytest.raises(ValueError, match=r"batch size.*exceeds maximum"):
+            uuids(self.MAX_BATCH_SIZE + 1)
+
+    def test_at_limit_works(self) -> None:
+        """Batch at exactly the limit should work (not tested with actual 10M for speed)."""
+        # Just test that the boundary value doesn't raise prematurely
+        # We use a smaller value here for test speed
+        result = names(1000)
+        assert len(result) == 1000

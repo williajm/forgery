@@ -1,6 +1,9 @@
 //! First names for en_US locale.
 
 /// Common first names in the United States.
+///
+/// This list contains 200+ unique first names, evenly split between
+/// traditionally male and female names.
 pub const FIRST_NAMES: &[&str] = &[
     // Male names
     "James",
@@ -99,7 +102,6 @@ pub const FIRST_NAMES: &[&str] = &[
     "Bradley",
     "Roy",
     "Ralph",
-    "Eugene",
     "Randy",
     "Wayne",
     "Howard",
@@ -205,3 +207,27 @@ pub const FIRST_NAMES: &[&str] = &[
     "Alexis",
     "Lori",
 ];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashSet;
+
+    #[test]
+    fn test_no_duplicate_first_names() {
+        let unique: HashSet<_> = FIRST_NAMES.iter().collect();
+        assert_eq!(
+            unique.len(),
+            FIRST_NAMES.len(),
+            "Duplicate first names detected"
+        );
+    }
+
+    #[test]
+    fn test_first_names_not_empty() {
+        assert!(!FIRST_NAMES.is_empty());
+        for name in FIRST_NAMES {
+            assert!(!name.is_empty());
+        }
+    }
+}
