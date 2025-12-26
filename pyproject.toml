@@ -1,0 +1,91 @@
+[build-system]
+requires = ["maturin>=1.4,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "forgery"
+version = "0.1.0"
+description = "Fake data at the speed of Rust"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+authors = [{ name = "williajm" }]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Rust",
+    "Topic :: Software Development :: Testing",
+    "Typing :: Typed",
+]
+keywords = ["faker", "fake", "data", "testing", "mock", "rust"]
+
+[project.urls]
+Homepage = "https://github.com/williajm/forgery"
+Repository = "https://github.com/williajm/forgery"
+Issues = "https://github.com/williajm/forgery/issues"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.0",
+    "pytest-cov>=7.0",
+    "mypy>=1.19",
+    "ruff>=0.14",
+    "faker>=39.0",  # For benchmarking comparison
+    "bandit>=1.9",
+]
+
+[tool.maturin]
+features = ["extension-module"]
+python-source = "python"
+module-name = "forgery._forgery"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # Pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
+    "ARG",    # flake8-unused-arguments
+    "SIM",    # flake8-simplify
+    "TCH",    # flake8-type-checking
+    "PTH",    # flake8-use-pathlib
+    "RUF",    # Ruff-specific rules
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["forgery"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+show_error_codes = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --cov=forgery --cov-report=term-missing --cov-fail-under=90"
+
+[tool.coverage.run]
+source = ["python/forgery"]
+omit = ["tests/*", "**/__pycache__/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "@overload",
+]

@@ -1,0 +1,30 @@
+[package]
+name = "forgery-fuzz"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+arbitrary = { version = "1", features = ["derive"] }
+
+[dependencies._forgery]
+path = ".."
+package = "forgery"
+
+[[bin]]
+name = "fuzz_integers"
+path = "fuzz_targets/fuzz_integers.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_rng"
+path = "fuzz_targets/fuzz_rng.rs"
+test = false
+doc = false
+bench = false
