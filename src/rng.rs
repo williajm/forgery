@@ -19,7 +19,7 @@ impl ForgeryRng {
     /// Create a new RNG with a random seed.
     pub fn new() -> Self {
         Self {
-            rng: ChaCha8Rng::from_entropy(),
+            rng: ChaCha8Rng::from_os_rng(),
         }
     }
 
@@ -35,9 +35,9 @@ impl ForgeryRng {
     #[inline]
     pub fn gen_range<T>(&mut self, min: T, max: T) -> T
     where
-        T: rand::distributions::uniform::SampleUniform + PartialOrd,
+        T: rand::distr::uniform::SampleUniform + PartialOrd,
     {
-        self.rng.gen_range(min..=max)
+        self.rng.random_range(min..=max)
     }
 
     /// Choose a random element from a slice.
@@ -48,7 +48,7 @@ impl ForgeryRng {
     #[inline]
     pub fn choose<'a, T>(&mut self, slice: &'a [T]) -> &'a T {
         assert!(!slice.is_empty(), "cannot choose from an empty slice");
-        let idx = self.rng.gen_range(0..slice.len());
+        let idx = self.rng.random_range(0..slice.len());
         &slice[idx]
     }
 
