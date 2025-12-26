@@ -103,6 +103,42 @@ jobs:
           files: coverage.xml
           fail_ci_if_error: false
 
+  sonarcloud:
+    name: SonarCloud
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Shallow clones disabled for better analysis
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Create virtual environment
+        run: python -m venv .venv
+
+      - name: Install dependencies and build
+        run: |
+          source .venv/bin/activate
+          pip install maturin
+          pip install -e ".[dev]"
+          maturin develop
+
+      - name: Generate coverage report
+        run: |
+          source .venv/bin/activate
+          pytest --cov=forgery --cov-report=xml
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarqube-scan-action@v5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
   security:
     name: Security
     runs-on: ubuntu-latest
