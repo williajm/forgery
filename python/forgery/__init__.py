@@ -158,31 +158,37 @@ def emails(n: int) -> list[str]:
     return fake.emails(n)
 
 
-def integer(min_val: int = 0, max_val: int = 100) -> int:
+def integer(min: int = 0, max: int = 100) -> int:
     """Generate a single random integer within a range.
 
     Args:
-        min_val: Minimum value (inclusive). Default: 0.
-        max_val: Maximum value (inclusive). Default: 100.
+        min: Minimum value (inclusive). Default: 0.
+        max: Maximum value (inclusive). Default: 100.
 
     Returns:
         A random integer.
+
+    Raises:
+        ValueError: If min > max.
     """
-    return fake.integer(min_val, max_val)
+    return fake.integer(min, max)
 
 
-def integers(n: int, min_val: int = 0, max_val: int = 100) -> list[int]:
+def integers(n: int, min: int = 0, max: int = 100) -> list[int]:
     """Generate a batch of random integers within a range.
 
     Args:
         n: Number of integers to generate.
-        min_val: Minimum value (inclusive). Default: 0.
-        max_val: Maximum value (inclusive). Default: 100.
+        min: Minimum value (inclusive). Default: 0.
+        max: Maximum value (inclusive). Default: 100.
 
     Returns:
         A list of random integers.
+
+    Raises:
+        ValueError: If min > max or n exceeds the maximum batch size (10 million).
     """
-    return fake.integers(n, min_val, max_val)
+    return fake.integers(n, min, max)
 
 
 def uuid() -> str:

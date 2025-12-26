@@ -105,34 +105,34 @@ def emails(n: int) -> list[str]:
     """
     ...
 
-def integer(min_val: int = 0, max_val: int = 100) -> int:
+def integer(min: int = 0, max: int = 100) -> int:
     """Generate a single random integer within a range.
 
     Args:
-        min_val: Minimum value (inclusive). Default: 0.
-        max_val: Maximum value (inclusive). Default: 100.
+        min: Minimum value (inclusive). Default: 0.
+        max: Maximum value (inclusive). Default: 100.
 
     Returns:
         A random integer.
 
     Raises:
-        ValueError: If min_val > max_val.
+        ValueError: If min > max.
     """
     ...
 
-def integers(n: int, min_val: int = 0, max_val: int = 100) -> list[int]:
+def integers(n: int, min: int = 0, max: int = 100) -> list[int]:
     """Generate a batch of random integers within a range.
 
     Args:
         n: Number of integers to generate.
-        min_val: Minimum value (inclusive). Default: 0.
-        max_val: Maximum value (inclusive). Default: 100.
+        min: Minimum value (inclusive). Default: 0.
+        max: Maximum value (inclusive). Default: 100.
 
     Returns:
         A list of random integers.
 
     Raises:
-        ValueError: If min_val > max_val or n exceeds the maximum batch size (10 million).
+        ValueError: If min > max or n exceeds the maximum batch size (10 million).
     """
     ...
 

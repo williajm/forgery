@@ -54,6 +54,21 @@ pub fn generate_integers(
     Ok(integers)
 }
 
+/// Generate a single random integer within a range.
+///
+/// More efficient than `generate_integers(rng, 1, min, max)` as it avoids Vec allocation.
+///
+/// # Errors
+///
+/// Returns `RangeError` if `min > max`.
+#[inline]
+pub fn generate_integer(rng: &mut ForgeryRng, min: i64, max: i64) -> Result<i64, RangeError> {
+    if min > max {
+        return Err(RangeError { min, max });
+    }
+    Ok(rng.gen_range(min, max))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -274,7 +289,10 @@ mod tests {
         let ints1 = generate_integers(&mut rng1, 100, 0, 1_000_000).unwrap();
         let ints2 = generate_integers(&mut rng2, 100, 0, 1_000_000).unwrap();
 
-        assert_ne!(ints1, ints2, "Different seeds should produce different integers");
+        assert_ne!(
+            ints1, ints2,
+            "Different seeds should produce different integers"
+        );
     }
 }
 

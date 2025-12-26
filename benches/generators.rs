@@ -4,8 +4,8 @@
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 
-// We need to access the internal modules for benchmarking
-// Since this is a cdylib, we'll benchmark the underlying functions
+// Import the internal modules via the rlib
+use _forgery::Faker;
 
 fn bench_name_generation(c: &mut Criterion) {
     let mut group = c.benchmark_group("names");
@@ -16,12 +16,32 @@ fn bench_name_generation(c: &mut Criterion) {
             criterion::BenchmarkId::from_parameter(size),
             size,
             |b, &size| {
-                // Since we can't easily access the internal functions from a cdylib,
-                // we'll create a simple benchmark that demonstrates the pattern
+                let mut faker = Faker::new("en_US");
+                faker.seed(42);
                 b.iter(|| {
-                    let names: Vec<String> =
-                        (0..size).map(|i| format!("Name{}", black_box(i))).collect();
+                    let names = faker.names(black_box(size)).unwrap();
                     black_box(names)
+                });
+            },
+        );
+    }
+    group.finish();
+}
+
+fn bench_email_generation(c: &mut Criterion) {
+    let mut group = c.benchmark_group("emails");
+
+    for size in [100, 1_000, 10_000, 100_000].iter() {
+        group.throughput(Throughput::Elements(*size as u64));
+        group.bench_with_input(
+            criterion::BenchmarkId::from_parameter(size),
+            size,
+            |b, &size| {
+                let mut faker = Faker::new("en_US");
+                faker.seed(42);
+                b.iter(|| {
+                    let emails = faker.emails(black_box(size)).unwrap();
+                    black_box(emails)
                 });
             },
         );
@@ -38,10 +58,10 @@ fn bench_uuid_generation(c: &mut Criterion) {
             criterion::BenchmarkId::from_parameter(size),
             size,
             |b, &size| {
+                let mut faker = Faker::new("en_US");
+                faker.seed(42);
                 b.iter(|| {
-                    let uuids: Vec<String> = (0..size)
-                        .map(|_| "00000000-0000-4000-8000-000000000000".to_string())
-                        .collect();
+                    let uuids = faker.uuids(black_box(size)).unwrap();
                     black_box(uuids)
                 });
             },
@@ -50,5 +70,63 @@ fn bench_uuid_generation(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_name_generation, bench_uuid_generation);
+fn bench_integer_generation(c: &mut Criterion) {
+    let mut group = c.benchmark_group("integers");
+
+    for size in [100, 1_000, 10_000, 100_000].iter() {
+        group.throughput(Throughput::Elements(*size as u64));
+        group.bench_with_input(
+            criterion::BenchmarkId::from_parameter(size),
+            size,
+            |b, &size| {
+                let mut faker = Faker::new("en_US");
+                faker.seed(42);
+                b.iter(|| {
+                    let ints = faker.integers(black_box(size), 0, 1_000_000).unwrap();
+                    black_box(ints)
+                });
+            },
+        );
+    }
+    group.finish();
+}
+
+fn bench_single_value_generation(c: &mut Criterion) {
+    let mut group = c.benchmark_group("single_value");
+
+    group.bench_function("name", |b| {
+        let mut faker = Faker::new("en_US");
+        faker.seed(42);
+        b.iter(|| black_box(faker.name()));
+    });
+
+    group.bench_function("email", |b| {
+        let mut faker = Faker::new("en_US");
+        faker.seed(42);
+        b.iter(|| black_box(faker.email()));
+    });
+
+    group.bench_function("uuid", |b| {
+        let mut faker = Faker::new("en_US");
+        faker.seed(42);
+        b.iter(|| black_box(faker.uuid()));
+    });
+
+    group.bench_function("integer", |b| {
+        let mut faker = Faker::new("en_US");
+        faker.seed(42);
+        b.iter(|| black_box(faker.integer(0, 100).unwrap()));
+    });
+
+    group.finish();
+}
+
+criterion_group!(
+    benches,
+    bench_name_generation,
+    bench_email_generation,
+    bench_uuid_generation,
+    bench_integer_generation,
+    bench_single_value_generation
+);
 criterion_main!(benches);

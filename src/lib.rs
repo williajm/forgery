@@ -50,6 +50,10 @@ fn validate_batch_size(n: usize) -> PyResult<()> {
 #[pyclass]
 pub struct Faker {
     rng: ForgeryRng,
+    /// The locale for this Faker instance.
+    ///
+    /// Currently only "en_US" is supported. This field is stored for future
+    /// locale support but does not affect generation behavior yet.
     #[allow(dead_code)]
     locale: String,
 }
@@ -139,23 +143,17 @@ impl Faker {
 
     /// Generate a single random full name.
     fn name(&mut self) -> String {
-        providers::names::generate_names(&mut self.rng, 1)
-            .pop()
-            .unwrap_or_default()
+        providers::names::generate_name(&mut self.rng)
     }
 
     /// Generate a single random first name.
     fn first_name(&mut self) -> String {
-        providers::names::generate_first_names(&mut self.rng, 1)
-            .pop()
-            .unwrap_or_default()
+        providers::names::generate_first_name(&mut self.rng)
     }
 
     /// Generate a single random last name.
     fn last_name(&mut self) -> String {
-        providers::names::generate_last_names(&mut self.rng, 1)
-            .pop()
-            .unwrap_or_default()
+        providers::names::generate_last_name(&mut self.rng)
     }
 
     /// Generate a batch of random email addresses.
@@ -174,9 +172,7 @@ impl Faker {
 
     /// Generate a single random email address.
     fn email(&mut self) -> String {
-        providers::internet::generate_emails(&mut self.rng, 1)
-            .pop()
-            .unwrap_or_default()
+        providers::internet::generate_email(&mut self.rng)
     }
 
     /// Generate a batch of random integers within a range.
@@ -204,8 +200,7 @@ impl Faker {
     /// Returns `ValueError` if `min > max`.
     #[pyo3(signature = (min = 0, max = 100))]
     fn integer(&mut self, min: i64, max: i64) -> PyResult<i64> {
-        providers::numbers::generate_integers(&mut self.rng, 1, min, max)
-            .map(|mut v| v.pop().unwrap_or(min))
+        providers::numbers::generate_integer(&mut self.rng, min, max)
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
@@ -225,9 +220,7 @@ impl Faker {
 
     /// Generate a single random UUID (version 4).
     fn uuid(&mut self) -> String {
-        providers::identifiers::generate_uuids(&mut self.rng, 1)
-            .pop()
-            .unwrap_or_default()
+        providers::identifiers::generate_uuid(&mut self.rng)
     }
 }
 

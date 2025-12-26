@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.0] - 2024-XX-XX
+## [0.1.0] - Unreleased
 
 ### Added
 
@@ -27,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `uuid()` / `uuids(n)`: Version 4 UUIDs
 - Module-level convenience functions using a default `fake` instance
 - Full type stub support (PEP 561)
-- US English locale (`en_US`) with 200+ first names and 170+ last names
+- US English locale (`en_US`) with 200 first names and 168 last names
 
 ### Security
 

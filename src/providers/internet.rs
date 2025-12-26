@@ -36,6 +36,17 @@ pub fn generate_emails(rng: &mut ForgeryRng, n: usize) -> Vec<String> {
     emails
 }
 
+/// Generate a single email address.
+///
+/// More efficient than `generate_emails(rng, 1)` as it avoids Vec allocation.
+#[inline]
+pub fn generate_email(rng: &mut ForgeryRng) -> String {
+    let name = rng.choose(FIRST_NAMES).to_lowercase();
+    let num: u16 = rng.gen_range(1, 999);
+    let domain = rng.choose(EMAIL_DOMAINS);
+    format!("{}{:03}@{}", name, num, domain)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -128,7 +139,12 @@ mod tests {
             let local = email.split('@').next().unwrap();
             // Extract digits
             let digits: String = local.chars().filter(|c| c.is_ascii_digit()).collect();
-            assert_eq!(digits.len(), 3, "Email should have 3-digit number: {}", email);
+            assert_eq!(
+                digits.len(),
+                3,
+                "Email should have 3-digit number: {}",
+                email
+            );
         }
     }
 
@@ -159,7 +175,10 @@ mod tests {
         let emails1 = generate_emails(&mut rng1, 100);
         let emails2 = generate_emails(&mut rng2, 100);
 
-        assert_ne!(emails1, emails2, "Different seeds should produce different emails");
+        assert_ne!(
+            emails1, emails2,
+            "Different seeds should produce different emails"
+        );
     }
 
     #[test]

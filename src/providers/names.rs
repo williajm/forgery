@@ -53,6 +53,32 @@ pub fn generate_last_names(rng: &mut ForgeryRng, n: usize) -> Vec<String> {
     names
 }
 
+/// Generate a single full name (first + last).
+///
+/// More efficient than `generate_names(rng, 1)` as it avoids Vec allocation.
+#[inline]
+pub fn generate_name(rng: &mut ForgeryRng) -> String {
+    let first = rng.choose(FIRST_NAMES);
+    let last = rng.choose(LAST_NAMES);
+    format!("{} {}", first, last)
+}
+
+/// Generate a single first name.
+///
+/// More efficient than `generate_first_names(rng, 1)` as it avoids Vec allocation.
+#[inline]
+pub fn generate_first_name(rng: &mut ForgeryRng) -> String {
+    rng.choose(FIRST_NAMES).to_string()
+}
+
+/// Generate a single last name.
+///
+/// More efficient than `generate_last_names(rng, 1)` as it avoids Vec allocation.
+#[inline]
+pub fn generate_last_name(rng: &mut ForgeryRng) -> String {
+    rng.choose(LAST_NAMES).to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -184,7 +210,10 @@ mod tests {
         let names1 = generate_names(&mut rng1, 100);
         let names2 = generate_names(&mut rng2, 100);
 
-        assert_ne!(names1, names2, "Different seeds should produce different names");
+        assert_ne!(
+            names1, names2,
+            "Different seeds should produce different names"
+        );
     }
 
     #[test]

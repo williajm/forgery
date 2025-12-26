@@ -29,6 +29,21 @@ pub fn generate_uuids(rng: &mut ForgeryRng, n: usize) -> Vec<String> {
     uuids
 }
 
+/// Generate a single UUIDv4 string.
+///
+/// More efficient than `generate_uuids(rng, 1)` as it avoids Vec allocation.
+#[inline]
+pub fn generate_uuid(rng: &mut ForgeryRng) -> String {
+    let mut bytes = [0u8; 16];
+    rng.fill_bytes(&mut bytes);
+
+    // Set version (4) and variant (RFC 4122)
+    bytes[6] = (bytes[6] & 0x0f) | 0x40; // Version 4
+    bytes[8] = (bytes[8] & 0x3f) | 0x80; // Variant RFC 4122
+
+    format_uuid(&bytes)
+}
+
 /// Format 16 bytes as a UUID string.
 fn format_uuid(bytes: &[u8; 16]) -> String {
     format!(
@@ -179,7 +194,10 @@ mod tests {
         let uuids1 = generate_uuids(&mut rng1, 100);
         let uuids2 = generate_uuids(&mut rng2, 100);
 
-        assert_ne!(uuids1, uuids2, "Different seeds should produce different UUIDs");
+        assert_ne!(
+            uuids1, uuids2,
+            "Different seeds should produce different UUIDs"
+        );
     }
 
     #[test]

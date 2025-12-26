@@ -2,7 +2,7 @@
 
 /// Common last names in the United States.
 ///
-/// This list contains 150+ unique surnames representing the diversity
+/// This list contains 168 unique surnames representing the diversity
 /// of American family names.
 pub const LAST_NAMES: &[&str] = &[
     "Smith",
