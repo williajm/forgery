@@ -1,5 +1,11 @@
 # forgery
 
+[![CI](https://github.com/williajm/forgery/actions/workflows/ci.yml/badge.svg)](https://github.com/williajm/forgery/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/williajm/forgery/branch/main/graph/badge.svg)](https://codecov.io/gh/williajm/forgery)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+
 **Fake data at the speed of Rust.**
 
 A high-performance fake data generation library for Python, powered by Rust. Designed to be 50-100x faster than Faker for batch operations.
