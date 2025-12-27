@@ -1,10 +1,7 @@
 """Type stubs for the Rust extension module."""
 
 import builtins
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    import pyarrow  # type: ignore[import-untyped]
+from typing import Any
 
 # Records schema types (matching forgery/__init__.pyi for consistency)
 FieldValue = str | int | float | tuple[int, int, int]
@@ -468,7 +465,7 @@ class Faker:
         """
         ...
 
-    def records_arrow(self, n: int, schema: Schema) -> pyarrow.RecordBatch:
+    def records_arrow(self, n: int, schema: Schema) -> Any:
         """Generate structured records as a PyArrow RecordBatch.
 
         This is the high-performance path for generating structured data,

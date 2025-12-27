@@ -1,11 +1,8 @@
 """Type stubs for the forgery package."""
 
-from typing import TYPE_CHECKING
+from typing import Any
 
 from forgery._forgery import Faker as Faker
-
-if TYPE_CHECKING:
-    import pyarrow  # type: ignore[import-untyped]
 
 __all__: list[str]
 __version__: str
@@ -290,7 +287,7 @@ def records_tuples(n: int, schema: Schema) -> list[tuple[FieldValue, ...]]:
     """
     ...
 
-def records_arrow(n: int, schema: Schema) -> pyarrow.RecordBatch:
+def records_arrow(n: int, schema: Schema) -> Any:
     """Generate structured records as a PyArrow RecordBatch.
 
     This is the high-performance path for generating structured data,
