@@ -818,8 +818,9 @@ fn generate_arrow_column(
         FieldSpec::Int => {
             let values: Result<Vec<i64>, _> = (0..n)
                 .map(|_| {
-                    numbers::generate_integer(rng, 0, 100)
-                        .map_err(|e| SchemaError { message: e.to_string() })
+                    numbers::generate_integer(rng, 0, 100).map_err(|e| SchemaError {
+                        message: e.to_string(),
+                    })
                 })
                 .collect();
             Ok(Arc::new(Int64Array::from(values?)))
@@ -827,8 +828,9 @@ fn generate_arrow_column(
         FieldSpec::IntRange { min, max } => {
             let values: Result<Vec<i64>, _> = (0..n)
                 .map(|_| {
-                    numbers::generate_integer(rng, *min, *max)
-                        .map_err(|e| SchemaError { message: e.to_string() })
+                    numbers::generate_integer(rng, *min, *max).map_err(|e| SchemaError {
+                        message: e.to_string(),
+                    })
                 })
                 .collect();
             Ok(Arc::new(Int64Array::from(values?)))
@@ -838,8 +840,9 @@ fn generate_arrow_column(
         FieldSpec::Float => {
             let values: Result<Vec<f64>, _> = (0..n)
                 .map(|_| {
-                    numbers::generate_float(rng, 0.0, 1.0)
-                        .map_err(|e| SchemaError { message: e.to_string() })
+                    numbers::generate_float(rng, 0.0, 1.0).map_err(|e| SchemaError {
+                        message: e.to_string(),
+                    })
                 })
                 .collect();
             Ok(Arc::new(Float64Array::from(values?)))
@@ -847,8 +850,9 @@ fn generate_arrow_column(
         FieldSpec::FloatRange { min, max } => {
             let values: Result<Vec<f64>, _> = (0..n)
                 .map(|_| {
-                    numbers::generate_float(rng, *min, *max)
-                        .map_err(|e| SchemaError { message: e.to_string() })
+                    numbers::generate_float(rng, *min, *max).map_err(|e| SchemaError {
+                        message: e.to_string(),
+                    })
                 })
                 .collect();
             Ok(Arc::new(Float64Array::from(values?)))
