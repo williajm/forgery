@@ -1884,25 +1884,16 @@ impl Faker {
     ) -> PyResult<Bound<'py, PyAny>> {
         use pyo3_async_runtimes::tokio::future_into_py;
 
-        // Validate and parse upfront (before async)
-        validate_batch_size(n).map_err(|e| PyValueError::new_err(e.to_string()))?;
-        let custom_names = self.custom_provider_names();
-        let rust_schema = parse_py_schema_with_custom(schema, &custom_names)?;
-        let chunk_size = chunk_size.unwrap_or(providers::async_records::DEFAULT_CHUNK_SIZE);
-
-        // Clone state for the async block
-        let mut rng = self.rng.clone();
-        let locale = self.locale;
-        let custom_providers = self.custom_providers.clone();
+        let mut state = self.prepare_async_state(n, schema, chunk_size)?;
 
         future_into_py(py, async move {
             let records = providers::async_records::generate_records_async(
-                &mut rng,
-                locale,
+                &mut state.rng,
+                state.locale,
                 n,
-                &rust_schema,
-                chunk_size,
-                &custom_providers,
+                &state.schema,
+                state.chunk_size,
+                &state.custom_providers,
             )
             .await
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
@@ -1948,29 +1939,18 @@ impl Faker {
     ) -> PyResult<Bound<'py, PyAny>> {
         use pyo3_async_runtimes::tokio::future_into_py;
 
-        // Validate and parse upfront (before async)
-        validate_batch_size(n).map_err(|e| PyValueError::new_err(e.to_string()))?;
-        let custom_names = self.custom_provider_names();
-        let rust_schema = parse_py_schema_with_custom(schema, &custom_names)?;
-        let chunk_size = chunk_size.unwrap_or(providers::async_records::DEFAULT_CHUNK_SIZE);
-
-        // Get field order from BTreeMap (sorted alphabetically)
-        let field_order: Vec<String> = rust_schema.keys().cloned().collect();
-
-        // Clone state for the async block
-        let mut rng = self.rng.clone();
-        let locale = self.locale;
-        let custom_providers = self.custom_providers.clone();
+        let mut state = self.prepare_async_state(n, schema, chunk_size)?;
+        let field_order: Vec<String> = state.schema.keys().cloned().collect();
 
         future_into_py(py, async move {
             let records = providers::async_records::generate_records_tuples_async(
-                &mut rng,
-                locale,
+                &mut state.rng,
+                state.locale,
                 n,
-                &rust_schema,
+                &state.schema,
                 &field_order,
-                chunk_size,
-                &custom_providers,
+                state.chunk_size,
+                &state.custom_providers,
             )
             .await
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
@@ -2016,25 +1996,16 @@ impl Faker {
     ) -> PyResult<Bound<'py, PyAny>> {
         use pyo3_async_runtimes::tokio::future_into_py;
 
-        // Validate and parse upfront (before async)
-        validate_batch_size(n).map_err(|e| PyValueError::new_err(e.to_string()))?;
-        let custom_names = self.custom_provider_names();
-        let rust_schema = parse_py_schema_with_custom(schema, &custom_names)?;
-        let chunk_size = chunk_size.unwrap_or(providers::async_records::DEFAULT_CHUNK_SIZE);
-
-        // Clone state for the async block
-        let mut rng = self.rng.clone();
-        let locale = self.locale;
-        let custom_providers = self.custom_providers.clone();
+        let mut state = self.prepare_async_state(n, schema, chunk_size)?;
 
         future_into_py(py, async move {
             let record_batch = providers::async_records::generate_records_arrow_async(
-                &mut rng,
-                locale,
+                &mut state.rng,
+                state.locale,
                 n,
-                &rust_schema,
-                chunk_size,
-                &custom_providers,
+                &state.schema,
+                state.chunk_size,
+                &state.custom_providers,
             )
             .await
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
@@ -2047,6 +2018,42 @@ impl Faker {
                     .map(|bound| bound.unbind())
                     .map_err(|e| PyValueError::new_err(e.to_string()))
             })
+        })
+    }
+}
+
+/// Prepared state for async record generation operations.
+///
+/// This struct bundles all the validated and cloned state needed for async operations,
+/// reducing code duplication across the three async methods.
+struct AsyncRecordState {
+    rng: ForgeryRng,
+    locale: Locale,
+    schema: BTreeMap<String, providers::records::FieldSpec>,
+    chunk_size: usize,
+    custom_providers: HashMap<String, CustomProvider>,
+}
+
+impl Faker {
+    /// Prepare state for async record generation.
+    ///
+    /// Validates inputs and clones necessary state for use in async blocks.
+    fn prepare_async_state(
+        &self,
+        n: usize,
+        schema: &Bound<'_, PyDict>,
+        chunk_size: Option<usize>,
+    ) -> PyResult<AsyncRecordState> {
+        validate_batch_size(n).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let custom_names = self.custom_provider_names();
+        let rust_schema = parse_py_schema_with_custom(schema, &custom_names)?;
+
+        Ok(AsyncRecordState {
+            rng: self.rng.clone(),
+            locale: self.locale,
+            schema: rust_schema,
+            chunk_size: chunk_size.unwrap_or(providers::async_records::DEFAULT_CHUNK_SIZE),
+            custom_providers: self.custom_providers.clone(),
         })
     }
 }
