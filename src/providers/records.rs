@@ -815,47 +815,45 @@ fn generate_arrow_column(
 ) -> Result<ArrayRef, SchemaError> {
     match spec {
         // Integer types -> Int64Array
+        // Note: Ranges are validated in validate_spec() before generation, so these can't fail
         FieldSpec::Int => {
-            let values: Result<Vec<i64>, _> = (0..n)
+            let values: Vec<i64> = (0..n)
                 .map(|_| {
-                    numbers::generate_integer(rng, 0, 100).map_err(|e| SchemaError {
-                        message: e.to_string(),
-                    })
+                    numbers::generate_integer(rng, 0, 100)
+                        .expect("default range 0-100 is always valid")
                 })
                 .collect();
-            Ok(Arc::new(Int64Array::from(values?)))
+            Ok(Arc::new(Int64Array::from(values)))
         }
         FieldSpec::IntRange { min, max } => {
-            let values: Result<Vec<i64>, _> = (0..n)
+            let values: Vec<i64> = (0..n)
                 .map(|_| {
-                    numbers::generate_integer(rng, *min, *max).map_err(|e| SchemaError {
-                        message: e.to_string(),
-                    })
+                    numbers::generate_integer(rng, *min, *max)
+                        .expect("range validated in validate_spec")
                 })
                 .collect();
-            Ok(Arc::new(Int64Array::from(values?)))
+            Ok(Arc::new(Int64Array::from(values)))
         }
 
         // Float types -> Float64Array
+        // Note: Ranges are validated in validate_spec() before generation, so these can't fail
         FieldSpec::Float => {
-            let values: Result<Vec<f64>, _> = (0..n)
+            let values: Vec<f64> = (0..n)
                 .map(|_| {
-                    numbers::generate_float(rng, 0.0, 1.0).map_err(|e| SchemaError {
-                        message: e.to_string(),
-                    })
+                    numbers::generate_float(rng, 0.0, 1.0)
+                        .expect("default range 0.0-1.0 is always valid")
                 })
                 .collect();
-            Ok(Arc::new(Float64Array::from(values?)))
+            Ok(Arc::new(Float64Array::from(values)))
         }
         FieldSpec::FloatRange { min, max } => {
-            let values: Result<Vec<f64>, _> = (0..n)
+            let values: Vec<f64> = (0..n)
                 .map(|_| {
-                    numbers::generate_float(rng, *min, *max).map_err(|e| SchemaError {
-                        message: e.to_string(),
-                    })
+                    numbers::generate_float(rng, *min, *max)
+                        .expect("range validated in validate_spec")
                 })
                 .collect();
-            Ok(Arc::new(Float64Array::from(values?)))
+            Ok(Arc::new(Float64Array::from(values)))
         }
 
         // RGB color -> Struct with r, g, b UInt8 fields
