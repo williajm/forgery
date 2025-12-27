@@ -1,6 +1,11 @@
 //! Structured data generation provider.
 //!
 //! Generates records based on a schema specification.
+//!
+//! Note: This module is implemented but not yet exposed to Python.
+//! It will be available in a future release.
+
+#![allow(dead_code)]
 
 use crate::providers::{
     address, colors, company, datetime, finance, identifiers, internet, names, network, numbers,
@@ -513,13 +518,11 @@ mod tests {
         let spec = parse_simple_type("rgb_color").unwrap();
         let result = generate_value(&mut rng, &spec).unwrap();
 
-        if let Value::Tuple3U8(r, g, b) = result {
-            assert!(r <= 255);
-            assert!(g <= 255);
-            assert!(b <= 255);
-        } else {
-            panic!("RGB color should be a tuple");
-        }
+        // Just verify we get a Tuple3U8 variant (u8 values are always 0-255)
+        assert!(
+            matches!(result, Value::Tuple3U8(_, _, _)),
+            "RGB color should be a tuple"
+        );
     }
 
     #[test]

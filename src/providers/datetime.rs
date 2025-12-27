@@ -29,9 +29,11 @@ impl std::fmt::Display for DateRangeError {
 impl std::error::Error for DateRangeError {}
 
 /// Default start date for date generation.
+#[allow(dead_code)]
 pub const DEFAULT_START_DATE: &str = "1970-01-01";
 
 /// Default end date for date generation.
+#[allow(dead_code)]
 pub const DEFAULT_END_DATE: &str = "2030-12-31";
 
 /// Parse a date string in YYYY-MM-DD format.
@@ -463,7 +465,7 @@ mod tests {
             let age = today.year() - dob.year();
             // Allow for birthday not yet passed
             assert!(
-                age >= 18 && age <= 66,
+                (18..=66).contains(&age),
                 "Age {} not in range for DOB {}",
                 age,
                 date

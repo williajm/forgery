@@ -181,8 +181,8 @@ mod tests {
             let parts: Vec<&str> = ip.split('.').collect();
             assert_eq!(parts.len(), 4, "IPv4 should have 4 parts: {}", ip);
             for part in &parts {
-                let num: u8 = part.parse().expect("Should be valid number");
-                assert!(num <= 255, "Each octet should be 0-255: {}", ip);
+                // Parsing as u8 validates the value is 0-255
+                let _num: u8 = part.parse().expect("Should be valid u8 (0-255)");
             }
         }
     }

@@ -84,7 +84,7 @@ pub fn validate_luhn(number: &str) -> bool {
         }
     }
 
-    sum % 10 == 0
+    sum.is_multiple_of(10)
 }
 
 /// Generate a batch of credit card numbers with valid Luhn checksums.

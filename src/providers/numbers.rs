@@ -450,7 +450,7 @@ mod tests {
         rng.seed(42);
 
         let f = generate_float(&mut rng, 0.0, 100.0).unwrap();
-        assert!(f >= 0.0 && f <= 100.0);
+        assert!((0.0..=100.0).contains(&f));
     }
 
     #[test]

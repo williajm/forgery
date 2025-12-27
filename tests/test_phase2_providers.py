@@ -2,8 +2,6 @@
 
 import re
 
-import pytest
-
 import forgery
 from forgery import Faker
 

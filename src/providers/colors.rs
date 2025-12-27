@@ -223,17 +223,13 @@ mod tests {
     }
 
     #[test]
-    fn test_rgb_color_range() {
+    fn test_rgb_color_batch_count() {
         let mut rng = ForgeryRng::new();
         rng.seed(42);
 
         let colors = generate_rgb_colors(&mut rng, 1000);
-        for (r, g, b) in &colors {
-            // u8 is always 0-255, so this is just a sanity check
-            assert!(*r <= 255);
-            assert!(*g <= 255);
-            assert!(*b <= 255);
-        }
+        // Verify we get the requested number of colors
+        assert_eq!(colors.len(), 1000);
     }
 
     #[test]
@@ -262,10 +258,8 @@ mod tests {
         let mut rng = ForgeryRng::new();
         rng.seed(42);
 
-        let (r, g, b) = generate_rgb_color(&mut rng);
-        assert!(r <= 255);
-        assert!(g <= 255);
-        assert!(b <= 255);
+        // Just verify the function returns a valid tuple (u8 values are always 0-255)
+        let (_r, _g, _b) = generate_rgb_color(&mut rng);
     }
 
     #[test]

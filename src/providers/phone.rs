@@ -77,7 +77,7 @@ mod tests {
             // Extract area code first digit (position 1)
             let first_digit = number.chars().nth(1).unwrap();
             assert!(
-                first_digit >= '2' && first_digit <= '9',
+                ('2'..='9').contains(&first_digit),
                 "Area code first digit should be 2-9: {}",
                 number
             );
@@ -94,7 +94,7 @@ mod tests {
             // Extract exchange first digit (position 6)
             let first_digit = number.chars().nth(6).unwrap();
             assert!(
-                first_digit >= '2' && first_digit <= '9',
+                ('2'..='9').contains(&first_digit),
                 "Exchange first digit should be 2-9: {}",
                 number
             );

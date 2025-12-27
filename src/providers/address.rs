@@ -56,6 +56,7 @@ pub fn generate_state(rng: &mut ForgeryRng) -> String {
 }
 
 /// Generate a batch of random state abbreviations.
+#[allow(dead_code)]
 pub fn generate_state_abbrs(rng: &mut ForgeryRng, n: usize) -> Vec<String> {
     let mut abbrs = Vec::with_capacity(n);
     for _ in 0..n {
