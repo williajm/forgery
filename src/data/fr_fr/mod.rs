@@ -39,8 +39,10 @@ const FR_PHONE_FORMAT: PhoneFormat = PhoneFormat::new(FR_PHONE_PATTERNS, "+33");
 const FR_POSTAL_FORMAT: PostalCodeFormat = PostalCodeFormat::new(FR_POSTAL_PATTERNS);
 
 /// French address format specification.
-/// In France, street number comes before street name.
-const FR_ADDRESS_FORMAT: AddressFormat = AddressFormat::new("{street}\n{postal} {city}", false);
+/// French uses street type as prefix: "rue de la République", "avenue Victor Hugo"
+/// Street number comes before the street: "15 rue de la République"
+const FR_ADDRESS_FORMAT: AddressFormat =
+    AddressFormat::with_prefix_type("{street}\n{postal} {city}", true);
 
 /// French locale data provider.
 pub struct FrFRData;

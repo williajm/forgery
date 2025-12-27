@@ -26,7 +26,7 @@ pub struct PhoneFormat {
 ///
 /// Defines patterns for generating locale-specific postal codes.
 /// - `#` represents a digit (0-9)
-/// - `A` represents a letter (A-Z)
+/// - `A` or `@` represents a letter (A-Z)
 /// - Other characters are included literally
 ///
 /// # Examples
@@ -66,11 +66,15 @@ pub struct AddressFormat {
     /// - `false` for Germany/France: "Hauptstraße 123"
     pub number_before_street: bool,
 
-    /// Separator between street name stem and suffix.
+    /// Separator between street name and type.
     /// - `""` for German: "Haupt" + "straße" = "Hauptstraße"
-    /// - `" "` for French: "rue" + " " + "de la République" = "rue de la République"
-    /// - `" "` for English: "Main" + " " + "Street" = "Main Street"
+    /// - `" "` for most others: "Main" + " " + "Street" = "Main Street"
     pub street_name_separator: &'static str,
+
+    /// Whether the street type comes before the name (prefix) or after (suffix).
+    /// - `false` (suffix): "Main Street", "Hauptstraße" - type after name
+    /// - `true` (prefix): "Calle Mayor", "Via Roma", "rue de la République" - type before name
+    pub street_type_prefix: bool,
 }
 
 impl PhoneFormat {
@@ -91,16 +95,19 @@ impl PostalCodeFormat {
 }
 
 impl AddressFormat {
-    /// Create a new address format with default space separator.
+    /// Create a new address format with default settings.
+    /// Defaults: space separator, street type as suffix.
     pub const fn new(template: &'static str, number_before_street: bool) -> Self {
         Self {
             template,
             number_before_street,
             street_name_separator: " ",
+            street_type_prefix: false,
         }
     }
 
     /// Create a new address format with custom street name separator.
+    /// Defaults: street type as suffix.
     pub const fn with_separator(
         template: &'static str,
         number_before_street: bool,
@@ -110,6 +117,19 @@ impl AddressFormat {
             template,
             number_before_street,
             street_name_separator,
+            street_type_prefix: false,
+        }
+    }
+
+    /// Create a new address format with street type as prefix.
+    /// Used for locales like French, Spanish, Italian where type comes first.
+    /// Example: "Calle Mayor", "Via Roma", "rue de la République"
+    pub const fn with_prefix_type(template: &'static str, number_before_street: bool) -> Self {
+        Self {
+            template,
+            number_before_street,
+            street_name_separator: " ",
+            street_type_prefix: true,
         }
     }
 }

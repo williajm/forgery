@@ -39,7 +39,10 @@ const IT_PHONE_FORMAT: PhoneFormat = PhoneFormat::new(IT_PHONE_PATTERNS, "+39");
 const IT_POSTAL_FORMAT: PostalCodeFormat = PostalCodeFormat::new(IT_POSTAL_PATTERNS);
 
 /// Italian address format specification.
-const IT_ADDRESS_FORMAT: AddressFormat = AddressFormat::new("{street}\n{postal} {city}", false);
+/// Italian uses street type as prefix: "Via Roma", "Piazza Garibaldi"
+/// Street number comes after the street: "Via Roma 15"
+const IT_ADDRESS_FORMAT: AddressFormat =
+    AddressFormat::with_prefix_type("{street}\n{postal} {city}", false);
 
 /// Italian locale data provider.
 pub struct ItITData;

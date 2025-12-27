@@ -44,8 +44,9 @@ const JP_POSTAL_FORMAT: PostalCodeFormat = PostalCodeFormat::new(JP_POSTAL_PATTE
 
 /// Japanese address format specification.
 /// Japanese addresses go from largest to smallest: postal, prefecture, city, street.
+/// Street names are compound words without spaces (e.g., "中央通り" not "中央 通り").
 const JP_ADDRESS_FORMAT: AddressFormat =
-    AddressFormat::new("〒{postal} {region}{city}{street}", false);
+    AddressFormat::with_separator("〒{postal} {region}{city}{street}", false, "");
 
 /// Japanese locale data provider.
 pub struct JaJPData;

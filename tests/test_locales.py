@@ -282,6 +282,42 @@ class TestLocaleAddressFormats:
             # There should be exactly 2 parts: compound street name and number
             assert len(parts) == 2, f"German address should be 'StreetName Number': {addr}"
 
+    def test_spanish_street_address_prefix(self) -> None:
+        """Spanish street addresses should have type before name, number at end."""
+        fake = Faker("es_ES")
+        fake.seed(42)
+        addresses = fake.street_addresses(50)
+        for addr in addresses:
+            parts = addr.split()
+            # Number should be at the end (Spanish has number_before_street=false)
+            assert parts[-1].isdigit(), f"Spanish address should end with number: {addr}"
+            # First word should NOT be a number (type comes first)
+            assert not parts[0].isdigit(), f"Spanish address should start with type: {addr}"
+
+    def test_italian_street_address_prefix(self) -> None:
+        """Italian street addresses should have type before name, number at end."""
+        fake = Faker("it_IT")
+        fake.seed(42)
+        addresses = fake.street_addresses(50)
+        for addr in addresses:
+            parts = addr.split()
+            # Number should be at the end (Italian has number_before_street=false)
+            assert parts[-1].isdigit(), f"Italian address should end with number: {addr}"
+            # First word should NOT be a number (type comes first)
+            assert not parts[0].isdigit(), f"Italian address should start with type: {addr}"
+
+    def test_french_street_address_prefix(self) -> None:
+        """French street addresses should have number first, then type."""
+        fake = Faker("fr_FR")
+        fake.seed(42)
+        addresses = fake.street_addresses(50)
+        for addr in addresses:
+            parts = addr.split()
+            # Number should be at the start (French has number_before_street=true)
+            assert parts[0].isdigit(), f"French address should start with number: {addr}"
+            # Second word should NOT be a number (type comes second)
+            assert not parts[1].isdigit(), f"French address should have type after number: {addr}"
+
     def test_us_street_address_format(self) -> None:
         """US street addresses should have number before street name."""
         fake = Faker("en_US")

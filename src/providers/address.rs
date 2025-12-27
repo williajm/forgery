@@ -27,25 +27,35 @@ pub fn generate_street_address(rng: &mut ForgeryRng, locale: Locale) -> String {
     let format = data.address_format();
 
     let number: u32 = rng.gen_range(1, 9999);
-    let street = if street_names.is_empty() {
+    let name = if street_names.is_empty() {
         "Main"
     } else {
         rng.choose(street_names)
     };
-    let suffix = if street_suffixes.is_empty() {
+    let street_type = if street_suffixes.is_empty() {
         "Street"
     } else {
         rng.choose(street_suffixes)
     };
 
-    // Get separator and number position from address format
-    let (number_before_street, separator) = match format {
-        Some(fmt) => (fmt.number_before_street, fmt.street_name_separator),
-        None => (true, " "), // Default to US-style
+    // Get format options from address format
+    let (number_before_street, separator, type_prefix) = match format {
+        Some(fmt) => (
+            fmt.number_before_street,
+            fmt.street_name_separator,
+            fmt.street_type_prefix,
+        ),
+        None => (true, " ", false), // Default to US-style (suffix)
     };
 
-    // Build the street name with appropriate separator
-    let street_name = format!("{}{}{}", street, separator, suffix);
+    // Build the street name: either "type name" (prefix) or "name type" (suffix)
+    let street_name = if type_prefix {
+        // Prefix: "Calle Mayor", "Via Roma", "rue de la République"
+        format!("{}{}{}", street_type, separator, name)
+    } else {
+        // Suffix: "Main Street", "Hauptstraße"
+        format!("{}{}{}", name, separator, street_type)
+    };
 
     if number_before_street {
         format!("{} {}", number, street_name)
@@ -158,7 +168,12 @@ pub fn generate_zip_code(rng: &mut ForgeryRng, locale: Locale) -> String {
     format!("{:05}", zip5)
 }
 
-/// Expand a format pattern where # is a digit and @ is a letter.
+/// Expand a format pattern where # is a digit and A/@ is a letter.
+///
+/// Placeholders:
+/// - `#` = random digit (0-9)
+/// - `A` or `@` = random uppercase letter (A-Z)
+/// - Other characters pass through unchanged
 fn expand_pattern(rng: &mut ForgeryRng, pattern: &str) -> String {
     pattern
         .chars()
@@ -167,7 +182,7 @@ fn expand_pattern(rng: &mut ForgeryRng, pattern: &str) -> String {
                 let digit = rng.gen_range(0u8, 9);
                 char::from_digit(digit as u32, 10).unwrap()
             }
-            '@' => {
+            'A' | '@' => {
                 let letter_idx = rng.gen_range(0u8, 25);
                 (b'A' + letter_idx) as char
             }
@@ -390,6 +405,27 @@ mod tests {
                 zip
             );
         }
+    }
+
+    #[test]
+    fn test_zip_code_uk_letters_are_randomized() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let zips = generate_zip_codes(&mut rng, Locale::EnGB, 50);
+        // Collect all letters from all postcodes
+        let letters: Vec<char> = zips
+            .iter()
+            .flat_map(|z| z.chars().filter(|c| c.is_alphabetic()))
+            .collect();
+
+        // Should have multiple different letters (not all 'A')
+        let unique_letters: std::collections::HashSet<_> = letters.iter().collect();
+        assert!(
+            unique_letters.len() > 5,
+            "UK postcodes should have varied letters, got: {:?}",
+            unique_letters
+        );
     }
 
     #[test]

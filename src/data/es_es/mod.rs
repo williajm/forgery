@@ -39,7 +39,10 @@ const ES_PHONE_FORMAT: PhoneFormat = PhoneFormat::new(ES_PHONE_PATTERNS, "+34");
 const ES_POSTAL_FORMAT: PostalCodeFormat = PostalCodeFormat::new(ES_POSTAL_PATTERNS);
 
 /// Spanish address format specification.
-const ES_ADDRESS_FORMAT: AddressFormat = AddressFormat::new("{street}\n{postal} {city}", false);
+/// Spanish uses street type as prefix: "Calle Mayor", "Avenida de España"
+/// Street number comes after the street: "Calle Mayor 15"
+const ES_ADDRESS_FORMAT: AddressFormat =
+    AddressFormat::with_prefix_type("{street}\n{postal} {city}", false);
 
 /// Spanish locale data provider.
 pub struct EsESData;
