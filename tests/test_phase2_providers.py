@@ -45,7 +45,7 @@ class TestHashGeneration:
         fake.seed(42)
         val = fake.md5()
         assert len(val) == 32
-        assert all(c in '0123456789abcdef' for c in val)
+        assert all(c in "0123456789abcdef" for c in val)
 
     def test_md5_batch(self):
         fake = Faker()
@@ -60,7 +60,7 @@ class TestHashGeneration:
         fake.seed(42)
         val = fake.sha256()
         assert len(val) == 64
-        assert all(c in '0123456789abcdef' for c in val)
+        assert all(c in "0123456789abcdef" for c in val)
 
     def test_sha256_batch(self):
         fake = Faker()
@@ -92,9 +92,9 @@ class TestColorGeneration:
         fake = Faker()
         fake.seed(42)
         val = fake.hex_color()
-        assert val.startswith('#')
+        assert val.startswith("#")
         assert len(val) == 7
-        assert all(c in '0123456789abcdef' for c in val[1:])
+        assert all(c in "0123456789abcdef" for c in val[1:])
 
     def test_rgb_color_single(self):
         fake = Faker()
@@ -115,7 +115,7 @@ class TestColorGeneration:
     def test_color_convenience(self):
         forgery.seed(42)
         assert isinstance(forgery.color(), str)
-        assert forgery.hex_color().startswith('#')
+        assert forgery.hex_color().startswith("#")
         assert len(forgery.rgb_color()) == 3
         assert len(forgery.colors(5)) == 5
         assert len(forgery.hex_colors(5)) == 5
@@ -129,8 +129,8 @@ class TestDateTimeGeneration:
         fake = Faker()
         fake.seed(42)
         val = fake.date("2020-01-01", "2020-12-31")
-        assert re.match(r'\d{4}-\d{2}-\d{2}', val)
-        assert val.startswith('2020-')
+        assert re.match(r"\d{4}-\d{2}-\d{2}", val)
+        assert val.startswith("2020-")
 
     def test_dates_batch(self):
         fake = Faker()
@@ -138,28 +138,28 @@ class TestDateTimeGeneration:
         vals = fake.dates(100, "2020-01-01", "2020-12-31")
         assert len(vals) == 100
         for v in vals:
-            assert v.startswith('2020-')
+            assert v.startswith("2020-")
 
     def test_date_of_birth(self):
         fake = Faker()
         fake.seed(42)
         val = fake.date_of_birth(18, 65)
-        assert re.match(r'\d{4}-\d{2}-\d{2}', val)
+        assert re.match(r"\d{4}-\d{2}-\d{2}", val)
 
     def test_datetime_single(self):
         fake = Faker()
         fake.seed(42)
         val = fake.datetime("2020-01-01", "2020-12-31")
-        assert 'T' in val
-        assert val.startswith('2020-')
+        assert "T" in val
+        assert val.startswith("2020-")
 
     def test_date_convenience(self):
         forgery.seed(42)
-        assert forgery.date().count('-') == 2
+        assert forgery.date().count("-") == 2
         assert len(forgery.dates(5)) == 5
-        assert forgery.date_of_birth().count('-') == 2
+        assert forgery.date_of_birth().count("-") == 2
         assert len(forgery.dates_of_birth(5)) == 5
-        assert 'T' in forgery.datetime_()
+        assert "T" in forgery.datetime_()
         assert len(forgery.datetimes(5)) == 5
 
 
@@ -171,7 +171,7 @@ class TestTextGeneration:
         fake.seed(42)
         val = fake.sentence(10)
         assert isinstance(val, str)
-        assert val.endswith('.')
+        assert val.endswith(".")
         assert val[0].isupper()
 
     def test_paragraph_single(self):
@@ -196,7 +196,7 @@ class TestTextGeneration:
 
     def test_text_convenience(self):
         forgery.seed(42)
-        assert forgery.sentence().endswith('.')
+        assert forgery.sentence().endswith(".")
         assert len(forgery.sentences(5)) == 5
         assert isinstance(forgery.paragraph(), str)
         assert len(forgery.paragraphs(5)) == 5
@@ -250,7 +250,7 @@ class TestAddressGeneration:
         val = fake.address()
         assert isinstance(val, str)
         # Should contain a comma
-        assert ',' in val
+        assert "," in val
 
     def test_address_batch(self):
         fake = Faker()
@@ -287,7 +287,7 @@ class TestPhoneGeneration:
         val = fake.phone_number()
         assert isinstance(val, str)
         # US format: (XXX) XXX-XXXX
-        assert '(' in val and ')' in val and '-' in val
+        assert "(" in val and ")" in val and "-" in val
 
     def test_phone_batch(self):
         fake = Faker()
@@ -297,7 +297,7 @@ class TestPhoneGeneration:
 
     def test_phone_convenience(self):
         forgery.seed(42)
-        assert '(' in forgery.phone_number()
+        assert "(" in forgery.phone_number()
         assert len(forgery.phone_numbers(5)) == 5
 
 
@@ -349,19 +349,19 @@ class TestNetworkGeneration:
         fake = Faker()
         fake.seed(42)
         val = fake.url()
-        assert val.startswith('https://')
+        assert val.startswith("https://")
 
     def test_domain_name_single(self):
         fake = Faker()
         fake.seed(42)
         val = fake.domain_name()
-        assert '.' in val
+        assert "." in val
 
     def test_ipv4_single(self):
         fake = Faker()
         fake.seed(42)
         val = fake.ipv4()
-        parts = val.split('.')
+        parts = val.split(".")
         assert len(parts) == 4
         for p in parts:
             assert 0 <= int(p) <= 255
@@ -370,7 +370,7 @@ class TestNetworkGeneration:
         fake = Faker()
         fake.seed(42)
         val = fake.ipv6()
-        parts = val.split(':')
+        parts = val.split(":")
         assert len(parts) == 8
         for p in parts:
             assert len(p) == 4
@@ -379,7 +379,7 @@ class TestNetworkGeneration:
         fake = Faker()
         fake.seed(42)
         val = fake.mac_address()
-        parts = val.split(':')
+        parts = val.split(":")
         assert len(parts) == 6
         for p in parts:
             assert len(p) == 2
@@ -395,11 +395,11 @@ class TestNetworkGeneration:
 
     def test_network_convenience(self):
         forgery.seed(42)
-        assert forgery.url().startswith('https://')
-        assert '.' in forgery.domain_name()
-        assert len(forgery.ipv4().split('.')) == 4
-        assert len(forgery.ipv6().split(':')) == 8
-        assert len(forgery.mac_address().split(':')) == 6
+        assert forgery.url().startswith("https://")
+        assert "." in forgery.domain_name()
+        assert len(forgery.ipv4().split(".")) == 4
+        assert len(forgery.ipv6().split(":")) == 8
+        assert len(forgery.mac_address().split(":")) == 6
         assert len(forgery.urls(5)) == 5
         assert len(forgery.domain_names(5)) == 5
         assert len(forgery.ipv4s(5)) == 5
@@ -414,19 +414,28 @@ class TestEmailVariants:
         fake = Faker()
         fake.seed(42)
         val = fake.safe_email()
-        assert '@' in val
-        domain = val.split('@')[1]
-        assert domain in ['example.com', 'example.org', 'example.net']
+        assert "@" in val
+        domain = val.split("@")[1]
+        assert domain in ["example.com", "example.org", "example.net"]
 
     def test_free_email_single(self):
         fake = Faker()
         fake.seed(42)
         val = fake.free_email()
-        assert '@' in val
-        domain = val.split('@')[1]
-        assert domain in ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com',
-                          'aol.com', 'icloud.com', 'mail.com', 'protonmail.com',
-                          'zoho.com', 'yandex.com']
+        assert "@" in val
+        domain = val.split("@")[1]
+        assert domain in [
+            "gmail.com",
+            "yahoo.com",
+            "hotmail.com",
+            "outlook.com",
+            "aol.com",
+            "icloud.com",
+            "mail.com",
+            "protonmail.com",
+            "zoho.com",
+            "yandex.com",
+        ]
 
     def test_email_batch(self):
         fake = Faker()
@@ -436,8 +445,8 @@ class TestEmailVariants:
 
     def test_email_convenience(self):
         forgery.seed(42)
-        assert '@example' in forgery.safe_email()
-        assert '@' in forgery.free_email()
+        assert "@example" in forgery.safe_email()
+        assert "@" in forgery.free_email()
         assert len(forgery.safe_emails(5)) == 5
         assert len(forgery.free_emails(5)) == 5
 
@@ -539,7 +548,7 @@ def validate_luhn(number: str) -> bool:
 def validate_iban(iban: str) -> bool:
     """Validate an IBAN using ISO 7064 Mod 97-10."""
     # Remove spaces and convert to uppercase
-    clean = ''.join(iban.split()).upper()
+    clean = "".join(iban.split()).upper()
     if len(clean) < 5:
         return False
 
@@ -547,12 +556,12 @@ def validate_iban(iban: str) -> bool:
     rearranged = clean[4:] + clean[:4]
 
     # Convert letters to numbers
-    numeric = ''
+    numeric = ""
     for c in rearranged:
         if c.isdigit():
             numeric += c
         elif c.isalpha():
-            numeric += str(ord(c) - ord('A') + 10)
+            numeric += str(ord(c) - ord("A") + 10)
         else:
             return False
 
