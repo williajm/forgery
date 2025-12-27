@@ -2,7 +2,7 @@
 //!
 //! Generates email addresses, URLs, IP addresses, etc.
 
-use crate::data::en_us::FIRST_NAMES;
+use crate::data::en_us::{FIRST_NAMES, FREE_EMAIL_DOMAINS, SAFE_EMAIL_DOMAINS};
 use crate::rng::ForgeryRng;
 
 /// Common email domains for generation.
@@ -44,6 +44,51 @@ pub fn generate_email(rng: &mut ForgeryRng) -> String {
     let name = rng.choose(FIRST_NAMES).to_lowercase();
     let num: u16 = rng.gen_range(1, 999);
     let domain = rng.choose(EMAIL_DOMAINS);
+    format!("{}{:03}@{}", name, num, domain)
+}
+
+/// Generate a batch of safe email addresses.
+///
+/// Safe emails use example.com/org/net domains that are reserved for testing
+/// and documentation (RFC 2606).
+pub fn generate_safe_emails(rng: &mut ForgeryRng, n: usize) -> Vec<String> {
+    let mut emails = Vec::with_capacity(n);
+    for _ in 0..n {
+        emails.push(generate_safe_email(rng));
+    }
+    emails
+}
+
+/// Generate a single safe email address.
+///
+/// Uses example.com, example.org, or example.net (RFC 2606 reserved domains).
+#[inline]
+pub fn generate_safe_email(rng: &mut ForgeryRng) -> String {
+    let name = rng.choose(FIRST_NAMES).to_lowercase();
+    let num: u16 = rng.gen_range(1, 999);
+    let domain = rng.choose(SAFE_EMAIL_DOMAINS);
+    format!("{}{:03}@{}", name, num, domain)
+}
+
+/// Generate a batch of free email addresses.
+///
+/// Free emails use common free email provider domains (gmail.com, yahoo.com, etc.).
+pub fn generate_free_emails(rng: &mut ForgeryRng, n: usize) -> Vec<String> {
+    let mut emails = Vec::with_capacity(n);
+    for _ in 0..n {
+        emails.push(generate_free_email(rng));
+    }
+    emails
+}
+
+/// Generate a single free email address.
+///
+/// Uses common free email providers like gmail.com, yahoo.com, etc.
+#[inline]
+pub fn generate_free_email(rng: &mut ForgeryRng) -> String {
+    let name = rng.choose(FIRST_NAMES).to_lowercase();
+    let num: u16 = rng.gen_range(1, 999);
+    let domain = rng.choose(FREE_EMAIL_DOMAINS);
     format!("{}{:03}@{}", name, num, domain)
 }
 
@@ -213,6 +258,118 @@ mod tests {
             assert!(has_digits, "Local part should have digits");
         }
     }
+
+    // Safe email tests
+    #[test]
+    fn test_generate_safe_emails_count() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let emails = generate_safe_emails(&mut rng, 100);
+        assert_eq!(emails.len(), 100);
+    }
+
+    #[test]
+    fn test_safe_email_uses_safe_domains() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let emails = generate_safe_emails(&mut rng, 100);
+        for email in &emails {
+            let domain = email.split('@').nth(1).unwrap();
+            assert!(
+                SAFE_EMAIL_DOMAINS.contains(&domain),
+                "Safe email should use safe domain: {}",
+                email
+            );
+        }
+    }
+
+    #[test]
+    fn test_safe_email_single() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let email = generate_safe_email(&mut rng);
+        let domain = email.split('@').nth(1).unwrap();
+        assert!(SAFE_EMAIL_DOMAINS.contains(&domain));
+    }
+
+    // Free email tests
+    #[test]
+    fn test_generate_free_emails_count() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let emails = generate_free_emails(&mut rng, 100);
+        assert_eq!(emails.len(), 100);
+    }
+
+    #[test]
+    fn test_free_email_uses_free_domains() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let emails = generate_free_emails(&mut rng, 100);
+        for email in &emails {
+            let domain = email.split('@').nth(1).unwrap();
+            assert!(
+                FREE_EMAIL_DOMAINS.contains(&domain),
+                "Free email should use free domain: {}",
+                email
+            );
+        }
+    }
+
+    #[test]
+    fn test_free_email_single() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let email = generate_free_email(&mut rng);
+        let domain = email.split('@').nth(1).unwrap();
+        assert!(FREE_EMAIL_DOMAINS.contains(&domain));
+    }
+
+    #[test]
+    fn test_safe_email_deterministic() {
+        let mut rng1 = ForgeryRng::new();
+        let mut rng2 = ForgeryRng::new();
+
+        rng1.seed(12345);
+        rng2.seed(12345);
+
+        let e1 = generate_safe_emails(&mut rng1, 50);
+        let e2 = generate_safe_emails(&mut rng2, 50);
+
+        assert_eq!(e1, e2);
+    }
+
+    #[test]
+    fn test_free_email_deterministic() {
+        let mut rng1 = ForgeryRng::new();
+        let mut rng2 = ForgeryRng::new();
+
+        rng1.seed(12345);
+        rng2.seed(12345);
+
+        let e1 = generate_free_emails(&mut rng1, 50);
+        let e2 = generate_free_emails(&mut rng2, 50);
+
+        assert_eq!(e1, e2);
+    }
+
+    #[test]
+    fn test_empty_safe_batch() {
+        let mut rng = ForgeryRng::new();
+        assert!(generate_safe_emails(&mut rng, 0).is_empty());
+    }
+
+    #[test]
+    fn test_empty_free_batch() {
+        let mut rng = ForgeryRng::new();
+        assert!(generate_free_emails(&mut rng, 0).is_empty());
+    }
 }
 
 #[cfg(test)]
@@ -294,6 +451,52 @@ mod proptest_tests {
                 let local = email.split('@').next().unwrap();
                 let digits: String = local.chars().filter(|c| c.is_ascii_digit()).collect();
                 prop_assert_eq!(digits.len(), 3);
+            }
+        }
+
+        /// Property: safe email batch size is respected
+        #[test]
+        fn prop_safe_email_batch_size(n in 0usize..500) {
+            let mut rng = ForgeryRng::new();
+            rng.seed(42);
+
+            let emails = generate_safe_emails(&mut rng, n);
+            prop_assert_eq!(emails.len(), n);
+        }
+
+        /// Property: safe emails use valid domains
+        #[test]
+        fn prop_safe_email_domains(n in 1usize..100) {
+            let mut rng = ForgeryRng::new();
+            rng.seed(42);
+
+            let emails = generate_safe_emails(&mut rng, n);
+            for email in emails {
+                let domain = email.split('@').nth(1).unwrap();
+                prop_assert!(SAFE_EMAIL_DOMAINS.contains(&domain));
+            }
+        }
+
+        /// Property: free email batch size is respected
+        #[test]
+        fn prop_free_email_batch_size(n in 0usize..500) {
+            let mut rng = ForgeryRng::new();
+            rng.seed(42);
+
+            let emails = generate_free_emails(&mut rng, n);
+            prop_assert_eq!(emails.len(), n);
+        }
+
+        /// Property: free emails use valid domains
+        #[test]
+        fn prop_free_email_domains(n in 1usize..100) {
+            let mut rng = ForgeryRng::new();
+            rng.seed(42);
+
+            let emails = generate_free_emails(&mut rng, n);
+            for email in emails {
+                let domain = email.split('@').nth(1).unwrap();
+                prop_assert!(FREE_EMAIL_DOMAINS.contains(&domain));
             }
         }
     }

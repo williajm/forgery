@@ -1,8 +1,35 @@
 //! Identifier generation provider.
 //!
-//! Generates UUIDs, hashes, and other identifier types.
+//! Generates UUIDs, and hash-like hex strings.
+//!
+//! # Note on MD5/SHA256
+//!
+//! The `generate_md5` and `generate_sha256` functions produce random hex strings
+//! that match the format of MD5 (32 chars) and SHA256 (64 chars) hashes.
+//! They are NOT cryptographic hashes of any input data - they are simply
+//! random hex strings useful for generating fake data.
 
 use crate::rng::ForgeryRng;
+
+/// Lookup table for fast hex encoding.
+/// Each index maps to a two-character lowercase hex string.
+const HEX_TABLE: &[u8; 512] = b"\
+000102030405060708090a0b0c0d0e0f\
+101112131415161718191a1b1c1d1e1f\
+202122232425262728292a2b2c2d2e2f\
+303132333435363738393a3b3c3d3e3f\
+404142434445464748494a4b4c4d4e4f\
+505152535455565758595a5b5c5d5e5f\
+606162636465666768696a6b6c6d6e6f\
+707172737475767778797a7b7c7d7e7f\
+808182838485868788898a8b8c8d8e8f\
+909192939495969798999a9b9c9d9e9f\
+a0a1a2a3a4a5a6a7a8a9aaabacadaeaf\
+b0b1b2b3b4b5b6b7b8b9babbbcbdbebf\
+c0c1c2c3c4c5c6c7c8c9cacbcccdcecf\
+d0d1d2d3d4d5d6d7d8d9dadbdcdddedf\
+e0e1e2e3e4e5e6e7e8e9eaebecedeeef\
+f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff";
 
 /// Generate a batch of UUIDv4 strings.
 ///
@@ -44,16 +71,117 @@ pub fn generate_uuid(rng: &mut ForgeryRng) -> String {
     format_uuid(&bytes)
 }
 
-/// Format 16 bytes as a UUID string.
+/// Format 16 bytes as a UUID string using lookup table for performance.
 fn format_uuid(bytes: &[u8; 16]) -> String {
-    format!(
-        "{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
-        bytes[0], bytes[1], bytes[2], bytes[3],
-        bytes[4], bytes[5],
-        bytes[6], bytes[7],
-        bytes[8], bytes[9],
-        bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]
-    )
+    // Pre-allocate exact size: 32 hex chars + 4 dashes = 36
+    let mut result = String::with_capacity(36);
+
+    // Helper to push a byte as two hex chars using the lookup table
+    #[inline(always)]
+    fn push_hex(s: &mut String, byte: u8) {
+        let idx = (byte as usize) * 2;
+        s.push(HEX_TABLE[idx] as char);
+        s.push(HEX_TABLE[idx + 1] as char);
+    }
+
+    // xxxxxxxx-
+    push_hex(&mut result, bytes[0]);
+    push_hex(&mut result, bytes[1]);
+    push_hex(&mut result, bytes[2]);
+    push_hex(&mut result, bytes[3]);
+    result.push('-');
+
+    // xxxx-
+    push_hex(&mut result, bytes[4]);
+    push_hex(&mut result, bytes[5]);
+    result.push('-');
+
+    // xxxx-
+    push_hex(&mut result, bytes[6]);
+    push_hex(&mut result, bytes[7]);
+    result.push('-');
+
+    // xxxx-
+    push_hex(&mut result, bytes[8]);
+    push_hex(&mut result, bytes[9]);
+    result.push('-');
+
+    // xxxxxxxxxxxx
+    push_hex(&mut result, bytes[10]);
+    push_hex(&mut result, bytes[11]);
+    push_hex(&mut result, bytes[12]);
+    push_hex(&mut result, bytes[13]);
+    push_hex(&mut result, bytes[14]);
+    push_hex(&mut result, bytes[15]);
+
+    result
+}
+
+/// Generate a batch of MD5-like hash strings (32 lowercase hex characters).
+///
+/// Note: These are pseudo-random hashes generated from our seeded RNG,
+/// not actual MD5 hashes of any input data.
+///
+/// # Arguments
+///
+/// * `rng` - The random number generator to use
+/// * `n` - Number of hashes to generate
+pub fn generate_md5s(rng: &mut ForgeryRng, n: usize) -> Vec<String> {
+    let mut hashes = Vec::with_capacity(n);
+    for _ in 0..n {
+        hashes.push(generate_md5(rng));
+    }
+    hashes
+}
+
+/// Generate a single MD5-like hash string (32 lowercase hex characters).
+///
+/// More efficient than `generate_md5s(rng, 1)` as it avoids Vec allocation.
+#[inline]
+pub fn generate_md5(rng: &mut ForgeryRng) -> String {
+    let mut bytes = [0u8; 16];
+    rng.fill_bytes(&mut bytes);
+    format_hex(&bytes)
+}
+
+/// Generate a batch of SHA256-like hash strings (64 lowercase hex characters).
+///
+/// Note: These are pseudo-random hashes generated from our seeded RNG,
+/// not actual SHA256 hashes of any input data.
+///
+/// # Arguments
+///
+/// * `rng` - The random number generator to use
+/// * `n` - Number of hashes to generate
+pub fn generate_sha256s(rng: &mut ForgeryRng, n: usize) -> Vec<String> {
+    let mut hashes = Vec::with_capacity(n);
+    for _ in 0..n {
+        hashes.push(generate_sha256(rng));
+    }
+    hashes
+}
+
+/// Generate a single SHA256-like hash string (64 lowercase hex characters).
+///
+/// More efficient than `generate_sha256s(rng, 1)` as it avoids Vec allocation.
+#[inline]
+pub fn generate_sha256(rng: &mut ForgeryRng) -> String {
+    let mut bytes = [0u8; 32];
+    rng.fill_bytes(&mut bytes);
+    format_hex(&bytes)
+}
+
+/// Format bytes as a lowercase hex string using a lookup table for performance.
+fn format_hex(bytes: &[u8]) -> String {
+    let mut result = String::with_capacity(bytes.len() * 2);
+    for &byte in bytes {
+        let idx = (byte as usize) * 2;
+        // SAFETY: idx is always in range 0..512 since byte is u8 (0..256)
+        // and HEX_TABLE has exactly 512 bytes (256 entries * 2 chars each)
+        result.push(HEX_TABLE[idx] as char);
+        result.push(HEX_TABLE[idx + 1] as char);
+    }
+    result
 }
 
 #[cfg(test)]
@@ -262,6 +390,183 @@ mod tests {
             );
         }
     }
+
+    // MD5 tests
+    #[test]
+    fn test_generate_md5s_count() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let hashes = generate_md5s(&mut rng, 100);
+        assert_eq!(hashes.len(), 100);
+    }
+
+    #[test]
+    fn test_md5_format() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let hashes = generate_md5s(&mut rng, 50);
+        for hash in &hashes {
+            // MD5 format: 32 hex characters
+            assert_eq!(hash.len(), 32, "MD5 hash should be 32 characters");
+
+            // All characters should be lowercase hex digits
+            for c in hash.chars() {
+                assert!(
+                    c.is_ascii_hexdigit(),
+                    "All characters should be hex: {}",
+                    hash
+                );
+                if c.is_alphabetic() {
+                    assert!(c.is_lowercase(), "Should be lowercase: {}", hash);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_md5_deterministic() {
+        let mut rng1 = ForgeryRng::new();
+        let mut rng2 = ForgeryRng::new();
+
+        rng1.seed(12345);
+        rng2.seed(12345);
+
+        let hashes1 = generate_md5s(&mut rng1, 100);
+        let hashes2 = generate_md5s(&mut rng2, 100);
+
+        assert_eq!(hashes1, hashes2);
+    }
+
+    #[test]
+    fn test_md5_empty_batch() {
+        let mut rng = ForgeryRng::new();
+        let hashes = generate_md5s(&mut rng, 0);
+        assert!(hashes.is_empty());
+    }
+
+    #[test]
+    fn test_md5_single() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let hash = generate_md5(&mut rng);
+        assert_eq!(hash.len(), 32);
+    }
+
+    #[test]
+    fn test_md5_unique() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let hashes = generate_md5s(&mut rng, 1000);
+        let unique: std::collections::HashSet<_> = hashes.iter().collect();
+        assert_eq!(
+            unique.len(),
+            hashes.len(),
+            "All MD5 hashes should be unique"
+        );
+    }
+
+    // SHA256 tests
+    #[test]
+    fn test_generate_sha256s_count() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let hashes = generate_sha256s(&mut rng, 100);
+        assert_eq!(hashes.len(), 100);
+    }
+
+    #[test]
+    fn test_sha256_format() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let hashes = generate_sha256s(&mut rng, 50);
+        for hash in &hashes {
+            // SHA256 format: 64 hex characters
+            assert_eq!(hash.len(), 64, "SHA256 hash should be 64 characters");
+
+            // All characters should be lowercase hex digits
+            for c in hash.chars() {
+                assert!(
+                    c.is_ascii_hexdigit(),
+                    "All characters should be hex: {}",
+                    hash
+                );
+                if c.is_alphabetic() {
+                    assert!(c.is_lowercase(), "Should be lowercase: {}", hash);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_sha256_deterministic() {
+        let mut rng1 = ForgeryRng::new();
+        let mut rng2 = ForgeryRng::new();
+
+        rng1.seed(12345);
+        rng2.seed(12345);
+
+        let hashes1 = generate_sha256s(&mut rng1, 100);
+        let hashes2 = generate_sha256s(&mut rng2, 100);
+
+        assert_eq!(hashes1, hashes2);
+    }
+
+    #[test]
+    fn test_sha256_empty_batch() {
+        let mut rng = ForgeryRng::new();
+        let hashes = generate_sha256s(&mut rng, 0);
+        assert!(hashes.is_empty());
+    }
+
+    #[test]
+    fn test_sha256_single() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let hash = generate_sha256(&mut rng);
+        assert_eq!(hash.len(), 64);
+    }
+
+    #[test]
+    fn test_sha256_unique() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let hashes = generate_sha256s(&mut rng, 1000);
+        let unique: std::collections::HashSet<_> = hashes.iter().collect();
+        assert_eq!(
+            unique.len(),
+            hashes.len(),
+            "All SHA256 hashes should be unique"
+        );
+    }
+
+    #[test]
+    fn test_format_hex() {
+        let bytes = [0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef];
+        let hex = format_hex(&bytes);
+        assert_eq!(hex, "0123456789abcdef");
+    }
+
+    #[test]
+    fn test_format_hex_zeros() {
+        let bytes = [0x00; 8];
+        let hex = format_hex(&bytes);
+        assert_eq!(hex, "0000000000000000");
+    }
+
+    #[test]
+    fn test_format_hex_ones() {
+        let bytes = [0xff; 4];
+        let hex = format_hex(&bytes);
+        assert_eq!(hex, "ffffffff");
+    }
 }
 
 #[cfg(test)]
@@ -380,6 +685,118 @@ mod proptest_tests {
             let uuids = generate_uuids(&mut rng, n);
             let unique: std::collections::HashSet<_> = uuids.iter().collect();
             prop_assert_eq!(unique.len(), n);
+        }
+
+        // MD5 property tests
+
+        /// Property: MD5 batch size is always respected
+        #[test]
+        fn prop_md5_batch_size_respected(n in 0usize..1000) {
+            let mut rng = ForgeryRng::new();
+            rng.seed(42);
+
+            let hashes = generate_md5s(&mut rng, n);
+            prop_assert_eq!(hashes.len(), n);
+        }
+
+        /// Property: all MD5 hashes have correct length (32 chars)
+        #[test]
+        fn prop_md5_length(n in 1usize..100) {
+            let mut rng = ForgeryRng::new();
+            rng.seed(42);
+
+            let hashes = generate_md5s(&mut rng, n);
+            for hash in hashes {
+                prop_assert_eq!(hash.len(), 32);
+            }
+        }
+
+        /// Property: all MD5 characters are lowercase hex
+        #[test]
+        fn prop_md5_chars_valid(n in 1usize..100) {
+            let mut rng = ForgeryRng::new();
+            rng.seed(42);
+
+            let hashes = generate_md5s(&mut rng, n);
+            for hash in hashes {
+                for c in hash.chars() {
+                    prop_assert!(c.is_ascii_hexdigit());
+                    if c.is_alphabetic() {
+                        prop_assert!(c.is_lowercase());
+                    }
+                }
+            }
+        }
+
+        /// Property: MD5 same seed produces same output
+        #[test]
+        fn prop_md5_seed_determinism(seed_val in any::<u64>(), n in 1usize..100) {
+            let mut rng1 = ForgeryRng::new();
+            let mut rng2 = ForgeryRng::new();
+
+            rng1.seed(seed_val);
+            rng2.seed(seed_val);
+
+            let hashes1 = generate_md5s(&mut rng1, n);
+            let hashes2 = generate_md5s(&mut rng2, n);
+
+            prop_assert_eq!(hashes1, hashes2);
+        }
+
+        // SHA256 property tests
+
+        /// Property: SHA256 batch size is always respected
+        #[test]
+        fn prop_sha256_batch_size_respected(n in 0usize..1000) {
+            let mut rng = ForgeryRng::new();
+            rng.seed(42);
+
+            let hashes = generate_sha256s(&mut rng, n);
+            prop_assert_eq!(hashes.len(), n);
+        }
+
+        /// Property: all SHA256 hashes have correct length (64 chars)
+        #[test]
+        fn prop_sha256_length(n in 1usize..100) {
+            let mut rng = ForgeryRng::new();
+            rng.seed(42);
+
+            let hashes = generate_sha256s(&mut rng, n);
+            for hash in hashes {
+                prop_assert_eq!(hash.len(), 64);
+            }
+        }
+
+        /// Property: all SHA256 characters are lowercase hex
+        #[test]
+        fn prop_sha256_chars_valid(n in 1usize..100) {
+            let mut rng = ForgeryRng::new();
+            rng.seed(42);
+
+            let hashes = generate_sha256s(&mut rng, n);
+            for hash in hashes {
+                for c in hash.chars() {
+                    prop_assert!(c.is_ascii_hexdigit());
+                    if c.is_alphabetic() {
+                        prop_assert!(c.is_lowercase());
+                    }
+                }
+            }
+        }
+
+        /// Property: SHA256 same seed produces same output
+        #[test]
+        fn prop_sha256_seed_determinism(seed_val in any::<u64>(), n in 1usize..100) {
+            let mut rng1 = ForgeryRng::new();
+            let mut rng2 = ForgeryRng::new();
+
+            rng1.seed(seed_val);
+            rng2.seed(seed_val);
+
+            let hashes1 = generate_sha256s(&mut rng1, n);
+            let hashes2 = generate_sha256s(&mut rng2, n);
+
+            prop_assert_eq!(hashes1, hashes2);
         }
     }
 }
