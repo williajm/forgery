@@ -205,6 +205,73 @@ pub fn parse_simple_type(type_name: &str) -> Result<FieldSpec, SchemaError> {
     }
 }
 
+/// Validate a field specification without generating a value.
+///
+/// This allows schema validation to happen upfront, even when n=0.
+pub fn validate_spec(spec: &FieldSpec) -> Result<(), SchemaError> {
+    match spec {
+        FieldSpec::Simple(type_name) => {
+            // Validate that the type name is known
+            parse_simple_type(type_name)?;
+            Ok(())
+        }
+        FieldSpec::IntRange { min, max } => {
+            if min > max {
+                return Err(SchemaError {
+                    message: format!("Invalid int range: {} > {}", min, max),
+                });
+            }
+            Ok(())
+        }
+        FieldSpec::FloatRange { min, max } => {
+            if min > max {
+                return Err(SchemaError {
+                    message: format!("Invalid float range: {} > {}", min, max),
+                });
+            }
+            Ok(())
+        }
+        FieldSpec::Text {
+            min_chars,
+            max_chars,
+        } => {
+            if min_chars > max_chars {
+                return Err(SchemaError {
+                    message: format!("Invalid text range: {} > {}", min_chars, max_chars),
+                });
+            }
+            Ok(())
+        }
+        FieldSpec::DateRange { .. } => {
+            // Date validation requires parsing, which is done during generation
+            // We could add date format validation here if needed
+            Ok(())
+        }
+        FieldSpec::Choice(options) => {
+            if options.is_empty() {
+                return Err(SchemaError {
+                    message: "Choice options cannot be empty".to_string(),
+                });
+            }
+            Ok(())
+        }
+        // All direct type variants are always valid
+        _ => Ok(()),
+    }
+}
+
+/// Validate an entire schema without generating any values.
+///
+/// This ensures schema validation happens even when n=0.
+pub fn validate_schema(schema: &BTreeMap<String, FieldSpec>) -> Result<(), SchemaError> {
+    for (field_name, spec) in schema {
+        validate_spec(spec).map_err(|e| SchemaError {
+            message: format!("Field '{}': {}", field_name, e.message),
+        })?;
+    }
+    Ok(())
+}
+
 /// Generate a value based on a field specification.
 pub fn generate_value(rng: &mut ForgeryRng, spec: &FieldSpec) -> Result<Value, SchemaError> {
     match spec {
@@ -262,11 +329,11 @@ pub fn generate_value(rng: &mut ForgeryRng, spec: &FieldSpec) -> Result<Value, S
         FieldSpec::FreeEmail => Ok(Value::String(internet::generate_free_email(rng))),
         FieldSpec::Phone => Ok(Value::String(phone::generate_phone_number(rng))),
         FieldSpec::Uuid => Ok(Value::String(identifiers::generate_uuid(rng))),
-        FieldSpec::Int => Ok(Value::Int(
-            numbers::generate_integer(rng, 0, 1000).map_err(|e| SchemaError {
+        FieldSpec::Int => Ok(Value::Int(numbers::generate_integer(rng, 0, 100).map_err(
+            |e| SchemaError {
                 message: e.to_string(),
-            })?,
-        )),
+            },
+        )?)),
         FieldSpec::Float => Ok(Value::Float(
             numbers::generate_float(rng, 0.0, 1.0).map_err(|e| SchemaError {
                 message: e.to_string(),
@@ -337,11 +404,11 @@ fn generate_simple_value(rng: &mut ForgeryRng, type_name: &str) -> Result<Value,
         "sha256" => Ok(Value::String(identifiers::generate_sha256(rng))),
 
         // Numbers (defaults)
-        "int" => Ok(Value::Int(
-            numbers::generate_integer(rng, 0, 1000).map_err(|e| SchemaError {
+        "int" => Ok(Value::Int(numbers::generate_integer(rng, 0, 100).map_err(
+            |e| SchemaError {
                 message: e.to_string(),
-            })?,
-        )),
+            },
+        )?)),
         "float" => Ok(Value::Float(
             numbers::generate_float(rng, 0.0, 1.0).map_err(|e| SchemaError {
                 message: e.to_string(),
@@ -427,6 +494,9 @@ pub fn generate_records(
     n: usize,
     schema: &BTreeMap<String, FieldSpec>,
 ) -> Result<Vec<BTreeMap<String, Value>>, SchemaError> {
+    // Validate schema upfront (even when n=0)
+    validate_schema(schema)?;
+
     let mut records = Vec::with_capacity(n);
 
     for _ in 0..n {
@@ -451,13 +521,37 @@ pub fn generate_records_tuples(
     schema: &BTreeMap<String, FieldSpec>,
     field_order: &[String],
 ) -> Result<Vec<Vec<Value>>, SchemaError> {
-    // Validate field order matches schema
+    // Validate schema upfront (even when n=0)
+    validate_schema(schema)?;
+
+    // Validate field_order: check for duplicates
+    let mut seen = std::collections::HashSet::new();
+    for field in field_order {
+        if !seen.insert(field) {
+            return Err(SchemaError {
+                message: format!("Duplicate field in field_order: '{}'", field),
+            });
+        }
+    }
+
+    // Validate field_order: all fields must exist in schema
     for field in field_order {
         if !schema.contains_key(field) {
             return Err(SchemaError {
                 message: format!("Field '{}' not in schema", field),
             });
         }
+    }
+
+    // Validate field_order: must cover all schema fields
+    if field_order.len() != schema.len() {
+        let missing: Vec<_> = schema.keys().filter(|k| !field_order.contains(k)).collect();
+        return Err(SchemaError {
+            message: format!(
+                "field_order must cover all schema fields. Missing: {:?}",
+                missing
+            ),
+        });
     }
 
     let mut records = Vec::with_capacity(n);
@@ -784,6 +878,72 @@ mod tests {
 
         let result = generate_records_tuples(&mut rng, 10, &schema, &field_order);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_duplicate_field_in_order() {
+        let mut rng = ForgeryRng::new();
+
+        let schema = create_test_schema();
+        let field_order = vec![
+            "id".to_string(),
+            "name".to_string(),
+            "id".to_string(), // duplicate
+            "age".to_string(),
+            "salary".to_string(),
+            "status".to_string(),
+        ];
+
+        let result = generate_records_tuples(&mut rng, 10, &schema, &field_order);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .message
+            .contains("Duplicate field in field_order"));
+    }
+
+    #[test]
+    fn test_field_order_missing_fields() {
+        let mut rng = ForgeryRng::new();
+
+        let schema = create_test_schema();
+        // Only 3 fields, but schema has 5
+        let field_order = vec!["id".to_string(), "name".to_string(), "age".to_string()];
+
+        let result = generate_records_tuples(&mut rng, 10, &schema, &field_order);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .message
+            .contains("field_order must cover all schema fields"));
+    }
+
+    #[test]
+    fn test_schema_validation_when_n_is_zero() {
+        let mut rng = ForgeryRng::new();
+
+        let mut schema = BTreeMap::new();
+        schema.insert("age".to_string(), FieldSpec::IntRange { min: 100, max: 10 }); // invalid
+
+        // Even with n=0, schema should be validated
+        let result = generate_records(&mut rng, 0, &schema);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().message.contains("Invalid int range"));
+    }
+
+    #[test]
+    fn test_tuples_schema_validation_when_n_is_zero() {
+        let mut rng = ForgeryRng::new();
+
+        let mut schema = BTreeMap::new();
+        schema.insert("status".to_string(), FieldSpec::Choice(vec![])); // empty choice
+
+        let field_order = vec!["status".to_string()];
+
+        // Even with n=0, schema should be validated
+        let result = generate_records_tuples(&mut rng, 0, &schema, &field_order);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().message.contains("empty"));
     }
 }
 

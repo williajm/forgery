@@ -2,6 +2,17 @@
 
 import builtins
 
+# Records schema types (matching forgery/__init__.pyi for consistency)
+FieldValue = str | int | float | tuple[int, int, int]
+SimpleType = str
+IntRangeSpec = tuple[str, int, int]
+FloatRangeSpec = tuple[str, float, float]
+TextSpec = tuple[str, int, int]
+DateRangeSpec = tuple[str, str, str]
+ChoiceSpec = tuple[str, list[str]]
+FieldSpec = SimpleType | IntRangeSpec | FloatRangeSpec | TextSpec | DateRangeSpec | ChoiceSpec
+Schema = dict[str, FieldSpec]
+
 class Faker:
     """A fake data generator with its own random state.
 
@@ -396,7 +407,7 @@ class Faker:
         ...
 
     # Records generators
-    def records(self, n: int, schema: dict[str, str | tuple[str, ...]]) -> list[dict[str, object]]:
+    def records(self, n: int, schema: Schema) -> list[dict[str, FieldValue]]:
         """Generate structured records based on a schema.
 
         The schema is a dictionary mapping field names to type specifications:
@@ -419,9 +430,7 @@ class Faker:
         """
         ...
 
-    def records_tuples(
-        self, n: int, schema: dict[str, str | tuple[str, ...]]
-    ) -> list[tuple[object, ...]]:
+    def records_tuples(self, n: int, schema: Schema) -> list[tuple[FieldValue, ...]]:
         """Generate structured records as tuples based on a schema.
 
         This is faster than records() since it avoids creating dictionaries.

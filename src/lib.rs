@@ -1338,7 +1338,7 @@ impl Faker {
 
     /// Generate records as tuples based on a schema.
     ///
-    /// Returns a list of tuples with values in the order specified by the schema keys.
+    /// Returns a list of tuples with values in alphabetical order of the schema keys.
     /// This is faster than records() since it avoids creating dictionaries.
     #[pyo3(name = "records_tuples")]
     fn py_records_tuples(

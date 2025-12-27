@@ -373,3 +373,38 @@ class TestRecordsBatchLimits:
         """Batch size exceeding 10 million should raise for records_tuples."""
         with pytest.raises(ValueError, match="exceeds maximum"):
             records_tuples(10_000_001, {"id": "uuid"})
+
+
+class TestSchemaPreflightValidation:
+    """Tests for schema validation that happens even when n=0."""
+
+    def test_records_validates_schema_when_n_is_zero(self) -> None:
+        """Schema validation should happen even when n=0."""
+        # Invalid int range should be caught
+        with pytest.raises(ValueError, match="Invalid int range"):
+            records(0, {"age": ("int", 100, 10)})
+
+    def test_records_validates_invalid_type_when_n_is_zero(self) -> None:
+        """Unknown type should be caught even when n=0."""
+        with pytest.raises(ValueError, match="Unknown type"):
+            records(0, {"field": "nonexistent_type"})
+
+    def test_records_validates_empty_choice_when_n_is_zero(self) -> None:
+        """Empty choice should be caught even when n=0."""
+        with pytest.raises(ValueError, match="empty"):
+            records(0, {"status": ("choice", [])})
+
+    def test_records_validates_invalid_float_range_when_n_is_zero(self) -> None:
+        """Invalid float range should be caught even when n=0."""
+        with pytest.raises(ValueError, match="Invalid float range"):
+            records(0, {"price": ("float", 100.0, 10.0)})
+
+    def test_records_validates_invalid_text_range_when_n_is_zero(self) -> None:
+        """Invalid text range should be caught even when n=0."""
+        with pytest.raises(ValueError, match="Invalid text range"):
+            records(0, {"bio": ("text", 100, 10)})
+
+    def test_records_tuples_validates_schema_when_n_is_zero(self) -> None:
+        """Schema validation should happen for tuples even when n=0."""
+        with pytest.raises(ValueError, match="Invalid int range"):
+            records_tuples(0, {"age": ("int", 100, 10)})
