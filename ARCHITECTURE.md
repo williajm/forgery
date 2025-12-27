@@ -92,7 +92,7 @@ Each provider module generates a specific type of fake data:
 | company.rs | company, job, catch_phrase | Business data |
 | network.rs | url, domain_name, ipv4, ipv6, mac_address | Network identifiers |
 | finance.rs | credit_card, iban | Financial identifiers with valid checksums |
-| records.rs | records | Structured data from schema DSL |
+| records.rs | records | Structured data from schema DSL (Rust-only, not yet exposed to Python) |
 
 All providers follow the same pattern:
 1. Accept an `&mut ForgeryRng` for randomness
@@ -230,9 +230,11 @@ fn iban_checksum(country: &str, bban: &str) -> String {
 }
 ```
 
-## Schema DSL for Structured Data
+## Schema DSL for Structured Data (Coming Soon)
 
-The `records()` method generates structured data from a Python dict schema:
+> **Note**: The `records()` functionality is implemented in Rust (`src/providers/records.rs`) but is not yet exposed to Python. The following documents the planned API.
+
+The `records()` method will generate structured data from a Python dict schema:
 
 ```python
 schema = {

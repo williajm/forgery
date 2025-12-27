@@ -153,7 +153,11 @@ mod tests {
         for addr in &addresses {
             // Should have at least 3 parts: number, street, suffix
             let parts: Vec<&str> = addr.split_whitespace().collect();
-            assert!(parts.len() >= 3, "Address should have at least 3 parts: {}", addr);
+            assert!(
+                parts.len() >= 3,
+                "Address should have at least 3 parts: {}",
+                addr
+            );
             // First part should be numeric
             assert!(
                 parts[0].parse::<u32>().is_ok(),
@@ -194,7 +198,11 @@ mod tests {
 
         let cities = generate_cities(&mut rng, 100);
         for city in &cities {
-            assert!(CITIES.contains(&city.as_str()), "City '{}' not in data", city);
+            assert!(
+                CITIES.contains(&city.as_str()),
+                "City '{}' not in data",
+                city
+            );
         }
     }
 
@@ -215,7 +223,11 @@ mod tests {
 
         let states = generate_states(&mut rng, 100);
         for state in &states {
-            assert!(STATES.contains(&state.as_str()), "State '{}' not in data", state);
+            assert!(
+                STATES.contains(&state.as_str()),
+                "State '{}' not in data",
+                state
+            );
         }
     }
 

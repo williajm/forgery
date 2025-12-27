@@ -393,7 +393,11 @@ mod tests {
 
         let hashes = generate_md5s(&mut rng, 1000);
         let unique: std::collections::HashSet<_> = hashes.iter().collect();
-        assert_eq!(unique.len(), hashes.len(), "All MD5 hashes should be unique");
+        assert_eq!(
+            unique.len(),
+            hashes.len(),
+            "All MD5 hashes should be unique"
+        );
     }
 
     // SHA256 tests

@@ -230,16 +230,19 @@ fn generate_simple_value(rng: &mut ForgeryRng, type_name: &str) -> Result<Value,
 
         // DateTime (defaults)
         "date" => {
-            let val =
-                datetime::generate_date(rng, "2000-01-01", "2030-12-31").map_err(|e| SchemaError {
+            let val = datetime::generate_date(rng, "2000-01-01", "2030-12-31").map_err(|e| {
+                SchemaError {
                     message: e.to_string(),
-                })?;
+                }
+            })?;
             Ok(Value::String(val))
         }
         "datetime" => {
-            let val = datetime::generate_datetime(rng, "2000-01-01", "2030-12-31")
-                .map_err(|e| SchemaError {
-                    message: e.to_string(),
+            let val =
+                datetime::generate_datetime(rng, "2000-01-01", "2030-12-31").map_err(|e| {
+                    SchemaError {
+                        message: e.to_string(),
+                    }
                 })?;
             Ok(Value::String(val))
         }
@@ -320,10 +323,7 @@ mod tests {
         let mut schema = HashMap::new();
         schema.insert("id".to_string(), FieldSpec::Simple("uuid".to_string()));
         schema.insert("name".to_string(), FieldSpec::Simple("name".to_string()));
-        schema.insert(
-            "age".to_string(),
-            FieldSpec::IntRange { min: 18, max: 65 },
-        );
+        schema.insert("age".to_string(), FieldSpec::IntRange { min: 18, max: 65 });
         schema.insert(
             "salary".to_string(),
             FieldSpec::FloatRange {
@@ -496,7 +496,12 @@ mod tests {
         for type_name in types {
             let spec = parse_simple_type(type_name).unwrap();
             let result = generate_value(&mut rng, &spec);
-            assert!(result.is_ok(), "Failed to generate {}: {:?}", type_name, result);
+            assert!(
+                result.is_ok(),
+                "Failed to generate {}: {:?}",
+                type_name,
+                result
+            );
         }
     }
 

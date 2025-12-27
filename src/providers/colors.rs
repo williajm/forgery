@@ -159,8 +159,17 @@ mod tests {
         let colors = generate_hex_colors(&mut rng, 100);
         for color in &colors {
             // Format: #RRGGBB
-            assert_eq!(color.len(), 7, "Hex color should be 7 characters: {}", color);
-            assert!(color.starts_with('#'), "Hex color should start with #: {}", color);
+            assert_eq!(
+                color.len(),
+                7,
+                "Hex color should be 7 characters: {}",
+                color
+            );
+            assert!(
+                color.starts_with('#'),
+                "Hex color should start with #: {}",
+                color
+            );
 
             // All characters after # should be hex
             for c in color[1..].chars() {
@@ -287,7 +296,10 @@ mod tests {
         let colors1 = generate_colors(&mut rng1, 100);
         let colors2 = generate_colors(&mut rng2, 100);
 
-        assert_ne!(colors1, colors2, "Different seeds should produce different colors");
+        assert_ne!(
+            colors1, colors2,
+            "Different seeds should produce different colors"
+        );
     }
 
     #[test]
@@ -301,7 +313,10 @@ mod tests {
         let colors1 = generate_hex_colors(&mut rng1, 100);
         let colors2 = generate_hex_colors(&mut rng2, 100);
 
-        assert_ne!(colors1, colors2, "Different seeds should produce different hex colors");
+        assert_ne!(
+            colors1, colors2,
+            "Different seeds should produce different hex colors"
+        );
     }
 }
 

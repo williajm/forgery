@@ -5,6 +5,12 @@
 use crate::data::en_us::LOREM_WORDS;
 use crate::rng::ForgeryRng;
 
+/// Minimum number of words per sentence in paragraph generation.
+const MIN_WORDS_PER_SENTENCE: usize = 5;
+
+/// Maximum number of words per sentence in paragraph generation.
+const MAX_WORDS_PER_SENTENCE: usize = 15;
+
 /// Generate a batch of random sentences.
 ///
 /// # Arguments
@@ -80,8 +86,7 @@ pub fn generate_paragraph(rng: &mut ForgeryRng, sentence_count: usize) -> String
 
     let mut sentences = Vec::with_capacity(sentence_count);
     for _ in 0..sentence_count {
-        // Random word count between 5 and 15
-        let word_count: usize = rng.gen_range(5, 15);
+        let word_count: usize = rng.gen_range(MIN_WORDS_PER_SENTENCE, MAX_WORDS_PER_SENTENCE);
         sentences.push(generate_sentence(rng, word_count));
     }
 
@@ -183,7 +188,11 @@ mod tests {
                 sentence
             );
             // Should end with period
-            assert!(sentence.ends_with('.'), "Should end with period: {}", sentence);
+            assert!(
+                sentence.ends_with('.'),
+                "Should end with period: {}",
+                sentence
+            );
         }
     }
 

@@ -122,7 +122,11 @@ mod tests {
 
         let jobs = generate_jobs(&mut rng, 100);
         for job in &jobs {
-            assert!(JOB_TITLES.contains(&job.as_str()), "Job '{}' not in data", job);
+            assert!(
+                JOB_TITLES.contains(&job.as_str()),
+                "Job '{}' not in data",
+                job
+            );
         }
     }
 

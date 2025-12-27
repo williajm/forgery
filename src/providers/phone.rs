@@ -33,7 +33,10 @@ pub fn generate_phone_number(rng: &mut ForgeryRng) -> String {
     // Subscriber number: 4 digits
     let sub: u16 = rng.gen_range(0, 9999);
 
-    format!("({}{}{}) {}{}{}-{:04}", area1, area2, area3, ex1, ex2, ex3, sub)
+    format!(
+        "({}{}{}) {}{}{}-{:04}",
+        area1, area2, area3, ex1, ex2, ex3, sub
+    )
 }
 
 #[cfg(test)]

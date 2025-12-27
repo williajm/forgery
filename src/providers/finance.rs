@@ -6,16 +6,16 @@ use crate::rng::ForgeryRng;
 
 /// Credit card prefixes (IIN ranges) for major card networks.
 const CARD_PREFIXES: &[(&str, usize)] = &[
-    ("4", 16),            // Visa
-    ("51", 16),           // Mastercard
-    ("52", 16),           // Mastercard
-    ("53", 16),           // Mastercard
-    ("54", 16),           // Mastercard
-    ("55", 16),           // Mastercard
-    ("34", 15),           // American Express
-    ("37", 15),           // American Express
-    ("6011", 16),         // Discover
-    ("65", 16),           // Discover
+    ("4", 16),    // Visa
+    ("51", 16),   // Mastercard
+    ("52", 16),   // Mastercard
+    ("53", 16),   // Mastercard
+    ("54", 16),   // Mastercard
+    ("55", 16),   // Mastercard
+    ("34", 15),   // American Express
+    ("37", 15),   // American Express
+    ("6011", 16), // Discover
+    ("65", 16),   // Discover
 ];
 
 /// Country codes and BBAN lengths for IBAN generation.

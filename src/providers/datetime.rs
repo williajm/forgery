@@ -138,6 +138,12 @@ pub fn generate_date(
 /// * `min_age` - Minimum age in years
 /// * `max_age` - Maximum age in years
 ///
+/// # Determinism Note
+///
+/// This function uses a fixed reference date of 2024-01-01 for age calculations
+/// to ensure reproducible output with the same seed. This means ages are calculated
+/// relative to January 1, 2024, not the actual current date.
+///
 /// # Errors
 ///
 /// Returns `DateRangeError` if min_age > max_age.
@@ -172,6 +178,12 @@ pub fn generate_dates_of_birth(
 }
 
 /// Generate a single random date-of-birth value.
+///
+/// # Determinism Note
+///
+/// This function uses a fixed reference date of 2024-01-01 for age calculations
+/// to ensure reproducible output with the same seed. This means ages are calculated
+/// relative to January 1, 2024, not the actual current date.
 ///
 /// # Errors
 ///
@@ -351,7 +363,11 @@ mod tests {
 
         for date in &dates {
             let d = parse_date(date).unwrap();
-            assert!(d >= start_date && d <= end_date, "Date {} not in range", date);
+            assert!(
+                d >= start_date && d <= end_date,
+                "Date {} not in range",
+                date
+            );
         }
     }
 
@@ -446,7 +462,12 @@ mod tests {
             let dob = parse_date(date).unwrap();
             let age = today.year() - dob.year();
             // Allow for birthday not yet passed
-            assert!(age >= 18 && age <= 66, "Age {} not in range for DOB {}", age, date);
+            assert!(
+                age >= 18 && age <= 66,
+                "Age {} not in range for DOB {}",
+                age,
+                date
+            );
         }
     }
 
@@ -551,7 +572,10 @@ mod tests {
         let dates1 = generate_dates(&mut rng1, 100, "2020-01-01", "2023-12-31").unwrap();
         let dates2 = generate_dates(&mut rng2, 100, "2020-01-01", "2023-12-31").unwrap();
 
-        assert_ne!(dates1, dates2, "Different seeds should produce different dates");
+        assert_ne!(
+            dates1, dates2,
+            "Different seeds should produce different dates"
+        );
     }
 }
 

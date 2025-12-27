@@ -438,9 +438,17 @@ impl Faker {
     // === Text Generation ===
 
     /// Generate a batch of random sentences.
-    pub fn sentences(&mut self, n: usize, word_count: usize) -> Result<Vec<String>, BatchSizeError> {
+    pub fn sentences(
+        &mut self,
+        n: usize,
+        word_count: usize,
+    ) -> Result<Vec<String>, BatchSizeError> {
         validate_batch_size(n)?;
-        Ok(providers::text::generate_sentences(&mut self.rng, n, word_count))
+        Ok(providers::text::generate_sentences(
+            &mut self.rng,
+            n,
+            word_count,
+        ))
     }
 
     /// Generate a single random sentence.
@@ -493,7 +501,10 @@ impl Faker {
     /// Generate a batch of random street addresses.
     pub fn street_addresses(&mut self, n: usize) -> Result<Vec<String>, BatchSizeError> {
         validate_batch_size(n)?;
-        Ok(providers::address::generate_street_addresses(&mut self.rng, n))
+        Ok(providers::address::generate_street_addresses(
+            &mut self.rng,
+            n,
+        ))
     }
 
     /// Generate a single random street address.

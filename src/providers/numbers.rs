@@ -497,10 +497,7 @@ mod tests {
 
         let floats = generate_floats(&mut rng, 100, 0.0, 1.0).unwrap();
         // At least some values should be fractional (not 0.0 or 1.0)
-        let fractional_count = floats
-            .iter()
-            .filter(|&&f| f > 0.01 && f < 0.99)
-            .count();
+        let fractional_count = floats.iter().filter(|&&f| f > 0.01 && f < 0.99).count();
         assert!(fractional_count > 50, "Should have many fractional values");
     }
 

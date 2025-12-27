@@ -85,14 +85,92 @@ fake2.emails(100)
 
 ## Available Generators
 
+### Names & Identity
+
 | Batch | Single | Description |
 |-------|--------|-------------|
 | `names(n)` | `name()` | Full names (first + last) |
 | `first_names(n)` | `first_name()` | First names |
 | `last_names(n)` | `last_name()` | Last names |
+
+### Contact Information
+
+| Batch | Single | Description |
+|-------|--------|-------------|
 | `emails(n)` | `email()` | Email addresses |
-| `integers(n, min, max)` | `integer(min, max)` | Random integers |
+| `safe_emails(n)` | `safe_email()` | Safe domain emails (@example.com, etc.) |
+| `free_emails(n)` | `free_email()` | Free provider emails (@gmail.com, etc.) |
+| `phone_numbers(n)` | `phone_number()` | Phone numbers in (XXX) XXX-XXXX format |
+
+### Numbers & Identifiers
+
+| Batch | Single | Description |
+|-------|--------|-------------|
+| `integers(n, min, max)` | `integer(min, max)` | Random integers in range |
+| `floats(n, min, max)` | `float_(min, max)` | Random floats in range |
 | `uuids(n)` | `uuid()` | UUID v4 strings |
+| `md5s(n)` | `md5()` | MD5 hash strings |
+| `sha256s(n)` | `sha256()` | SHA256 hash strings |
+
+### Dates & Times
+
+| Batch | Single | Description |
+|-------|--------|-------------|
+| `dates(n, start, end)` | `date(start, end)` | Random dates (YYYY-MM-DD) |
+| `datetimes(n, start, end)` | `datetime(start, end)` | Random datetimes (ISO 8601) |
+| `dates_of_birth(n, min_age, max_age)` | `date_of_birth(min_age, max_age)` | Birth dates for given age range |
+
+### Addresses
+
+| Batch | Single | Description |
+|-------|--------|-------------|
+| `street_addresses(n)` | `street_address()` | Street addresses (e.g., "123 Main Street") |
+| `cities(n)` | `city()` | City names |
+| `states(n)` | `state()` | State names |
+| `countries(n)` | `country()` | Country names |
+| `zip_codes(n)` | `zip_code()` | ZIP codes (5 or 9 digit) |
+| `addresses(n)` | `address()` | Full addresses |
+
+### Company & Business
+
+| Batch | Single | Description |
+|-------|--------|-------------|
+| `companies(n)` | `company()` | Company names |
+| `jobs(n)` | `job()` | Job titles |
+| `catch_phrases(n)` | `catch_phrase()` | Business catch phrases |
+
+### Network
+
+| Batch | Single | Description |
+|-------|--------|-------------|
+| `urls(n)` | `url()` | URLs with https:// |
+| `domain_names(n)` | `domain_name()` | Domain names |
+| `ipv4s(n)` | `ipv4()` | IPv4 addresses |
+| `ipv6s(n)` | `ipv6()` | IPv6 addresses |
+| `mac_addresses(n)` | `mac_address()` | MAC addresses |
+
+### Finance
+
+| Batch | Single | Description |
+|-------|--------|-------------|
+| `credit_cards(n)` | `credit_card()` | Credit card numbers (valid Luhn) |
+| `ibans(n)` | `iban()` | IBAN numbers (valid checksum) |
+
+### Text & Lorem Ipsum
+
+| Batch | Single | Description |
+|-------|--------|-------------|
+| `sentences(n, word_count)` | `sentence(word_count)` | Lorem ipsum sentences |
+| `paragraphs(n, sentence_count)` | `paragraph(sentence_count)` | Lorem ipsum paragraphs |
+| `texts(n, min_chars, max_chars)` | `text(min_chars, max_chars)` | Text blocks with length limits |
+
+### Colors
+
+| Batch | Single | Description |
+|-------|--------|-------------|
+| `colors(n)` | `color()` | Color names |
+| `hex_colors(n)` | `hex_color()` | Hex color codes (#RRGGBB) |
+| `rgb_colors(n)` | `rgb_color()` | RGB tuples (r, g, b) |
 
 ## Performance
 

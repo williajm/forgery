@@ -17,7 +17,9 @@ pub fn generate_domain_names(rng: &mut ForgeryRng, n: usize) -> Vec<String> {
 /// Generate a single random domain name.
 #[inline]
 pub fn generate_domain_name(rng: &mut ForgeryRng) -> String {
-    let words = ["example", "test", "sample", "demo", "data", "info", "site", "web", "app", "api"];
+    let words = [
+        "example", "test", "sample", "demo", "data", "info", "site", "web", "app", "api",
+    ];
     let word = rng.choose(&words);
     let tld = rng.choose(TLDS);
     format!("{}.{}", word, tld)
@@ -36,7 +38,16 @@ pub fn generate_urls(rng: &mut ForgeryRng, n: usize) -> Vec<String> {
 #[inline]
 pub fn generate_url(rng: &mut ForgeryRng) -> String {
     let domain = generate_domain_name(rng);
-    let paths = ["", "/about", "/contact", "/products", "/services", "/blog", "/api", "/docs"];
+    let paths = [
+        "",
+        "/about",
+        "/contact",
+        "/products",
+        "/services",
+        "/blog",
+        "/api",
+        "/docs",
+    ];
     let path = rng.choose(&paths);
     format!("https://{}{}", domain, path)
 }
@@ -142,7 +153,11 @@ mod tests {
 
         let urls = generate_urls(&mut rng, 50);
         for url in &urls {
-            assert!(url.starts_with("https://"), "URL should start with https://: {}", url);
+            assert!(
+                url.starts_with("https://"),
+                "URL should start with https://: {}",
+                url
+            );
         }
     }
 
