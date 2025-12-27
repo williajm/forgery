@@ -463,3 +463,87 @@ class Faker:
             ValueError: If n exceeds the maximum batch size or schema is invalid.
         """
         ...
+
+    # Custom provider methods
+    def add_provider(self, name: str, options: list[str]) -> None:
+        """Register a custom provider with uniform random selection.
+
+        Args:
+            name: The provider name (must not conflict with built-in types)
+            options: List of string options to choose from
+
+        Raises:
+            ValueError: If name conflicts with built-in type or options is empty
+        """
+        ...
+
+    def add_weighted_provider(self, name: str, weighted_options: list[tuple[str, int]]) -> None:
+        """Register a custom provider with weighted random selection.
+
+        Args:
+            name: The provider name
+            weighted_options: List of (value, weight) tuples. Higher weights = more likely.
+
+        Raises:
+            ValueError: If name conflicts, options empty, or weights invalid
+        """
+        ...
+
+    def remove_provider(self, name: str) -> bool:
+        """Remove a custom provider.
+
+        Args:
+            name: The provider name to remove
+
+        Returns:
+            True if provider was removed, False if it didn't exist
+        """
+        ...
+
+    def has_provider(self, name: str) -> bool:
+        """Check if a custom provider exists.
+
+        Args:
+            name: The provider name to check
+
+        Returns:
+            True if provider exists, False otherwise
+        """
+        ...
+
+    def list_providers(self) -> list[str]:
+        """List all registered custom provider names.
+
+        Returns:
+            List of registered custom provider names
+        """
+        ...
+
+    def generate(self, name: str) -> str:
+        """Generate a single value from a custom provider.
+
+        Args:
+            name: The custom provider name
+
+        Returns:
+            A randomly selected string from the provider's options
+
+        Raises:
+            ValueError: If provider doesn't exist
+        """
+        ...
+
+    def generate_batch(self, name: str, n: int) -> list[str]:
+        """Generate a batch of values from a custom provider.
+
+        Args:
+            name: The custom provider name
+            n: Number of values to generate
+
+        Returns:
+            A list of randomly selected strings
+
+        Raises:
+            ValueError: If provider doesn't exist or n exceeds batch limit
+        """
+        ...

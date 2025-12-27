@@ -11,8 +11,23 @@ forgery/
 ├── src/                    # Rust source code
 │   ├── lib.rs              # PyO3 module entry point, Faker class
 │   ├── rng.rs              # RNG wrapper (ChaCha8)
-│   ├── data/en_us/         # Static data for generation (embedded at compile time)
+│   ├── error.rs            # Unified error types
+│   ├── locale.rs           # Locale definitions
+│   ├── data/               # Static data for generation (embedded at compile time)
+│   │   ├── en_us/          # US English locale data
+│   │   ├── en_gb/          # UK English locale data
+│   │   ├── de_de/          # German locale data
+│   │   ├── fr_fr/          # French locale data
+│   │   ├── es_es/          # Spanish locale data
+│   │   ├── it_it/          # Italian locale data
+│   │   └── ja_jp/          # Japanese locale data
 │   └── providers/          # Data generation providers
+│       ├── names.rs        # Name generation
+│       ├── internet.rs     # Email generation
+│       ├── address.rs      # Address generation
+│       ├── records.rs      # Structured data generation (records/tuples)
+│       ├── custom.rs       # Custom provider support
+│       └── ...             # Other providers
 ├── python/forgery/         # Python wrapper and type stubs
 ├── tests/                  # Python tests (pytest)
 └── benches/                # Rust benchmarks (Criterion)

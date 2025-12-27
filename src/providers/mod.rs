@@ -6,6 +6,7 @@
 pub mod address;
 pub mod colors;
 pub mod company;
+pub mod custom;
 pub mod datetime;
 pub mod finance;
 pub mod identifiers;

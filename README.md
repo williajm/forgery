@@ -263,6 +263,79 @@ data = records_tuples(1000, {
 
 All simple types from the generators above are supported: `name`, `first_name`, `last_name`, `email`, `safe_email`, `free_email`, `phone`, `uuid`, `int`, `float`, `date`, `datetime`, `street_address`, `city`, `state`, `country`, `zip_code`, `address`, `company`, `job`, `catch_phrase`, `url`, `domain_name`, `ipv4`, `ipv6`, `mac_address`, `credit_card`, `iban`, `sentence`, `paragraph`, `text`, `color`, `hex_color`, `rgb_color`, `md5`, `sha256`.
 
+## Custom Providers
+
+Register your own data providers for domain-specific generation:
+
+### Basic Custom Provider
+
+```python
+from forgery import Faker
+
+fake = Faker()
+
+# Register a uniform (equal probability) provider
+fake.add_provider("department", ["Engineering", "Sales", "HR", "Marketing"])
+
+# Generate values
+dept = fake.generate("department")
+depts = fake.generate_batch("department", 100)
+```
+
+### Weighted Custom Provider
+
+```python
+# Register a weighted provider (higher weights = more likely)
+fake.add_weighted_provider("status", [
+    ("active", 80),    # 80% probability
+    ("inactive", 20),  # 20% probability
+])
+
+# Generate with weighted distribution
+statuses = fake.generate_batch("status", 1000)
+# Expect ~800 "active", ~200 "inactive"
+```
+
+### Custom Providers in Records
+
+Custom providers integrate seamlessly with `records()`:
+
+```python
+from forgery import Faker
+
+fake = Faker()
+fake.add_provider("department", ["Eng", "Sales", "HR"])
+fake.add_weighted_provider("priority", [("high", 20), ("medium", 50), ("low", 30)])
+
+data = fake.records(1000, {
+    "id": "uuid",
+    "name": "name",
+    "department": "department",  # Custom provider
+    "priority": "priority",      # Weighted custom provider
+})
+```
+
+### Provider Management
+
+```python
+fake.has_provider("department")  # Check if provider exists
+fake.list_providers()            # List all custom provider names
+fake.remove_provider("department")  # Remove a provider
+```
+
+### Module-level Convenience
+
+```python
+from forgery import add_provider, generate, generate_batch, seed
+
+seed(42)
+add_provider("tier", ["gold", "silver", "bronze"])
+tier = generate("tier")
+tiers = generate_batch("tier", 100)
+```
+
+**Note:** Custom provider names cannot conflict with built-in types (e.g., "name", "email", "uuid").
+
 ## Performance
 
 Benchmark generating 100,000 items:

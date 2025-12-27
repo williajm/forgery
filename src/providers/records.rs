@@ -6,12 +6,13 @@
 //! for generating structured data based on a schema DSL.
 
 use crate::locale::Locale;
+use crate::providers::custom::CustomProvider;
 use crate::providers::{
     address, colors, company, datetime, finance, identifiers, internet, names, network, numbers,
     phone, text,
 };
 use crate::rng::ForgeryRng;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt;
 
 /// Error type for schema-related errors.
@@ -134,6 +135,8 @@ pub enum FieldSpec {
     Md5,
     /// SHA256 hash field type.
     Sha256,
+    /// Custom provider by name.
+    Custom(String),
 }
 
 /// A generated value that can be various types.
@@ -206,6 +209,31 @@ pub fn parse_simple_type(type_name: &str) -> Result<FieldSpec, SchemaError> {
     }
 }
 
+/// Parse a simple type name into a FieldSpec, with custom provider awareness.
+///
+/// If the type name matches a built-in type, returns the corresponding FieldSpec.
+/// If the type name is in the custom_provider_names set, returns FieldSpec::Custom.
+/// Otherwise, returns an error.
+pub fn parse_simple_type_with_custom(
+    type_name: &str,
+    custom_provider_names: &HashSet<String>,
+) -> Result<FieldSpec, SchemaError> {
+    // First try to parse as a built-in type
+    match parse_simple_type(type_name) {
+        Ok(spec) => Ok(spec),
+        Err(_) => {
+            // Check if it's a custom provider
+            if custom_provider_names.contains(type_name) {
+                Ok(FieldSpec::Custom(type_name.to_string()))
+            } else {
+                Err(SchemaError {
+                    message: format!("Unknown type: {}", type_name),
+                })
+            }
+        }
+    }
+}
+
 /// Validate a field specification without generating a value.
 ///
 /// This allows schema validation to happen upfront, even when n=0.
@@ -256,6 +284,9 @@ pub fn validate_spec(spec: &FieldSpec) -> Result<(), SchemaError> {
             }
             Ok(())
         }
+        // Custom providers are validated by the Faker when generating
+        // (we check the provider exists during generation)
+        FieldSpec::Custom(_) => Ok(()),
         // All direct type variants are always valid
         _ => Ok(()),
     }
@@ -269,6 +300,35 @@ pub fn validate_schema(schema: &BTreeMap<String, FieldSpec>) -> Result<(), Schem
         validate_spec(spec).map_err(|e| SchemaError {
             message: format!("Field '{}': {}", field_name, e.message),
         })?;
+    }
+    Ok(())
+}
+
+/// Validate an entire schema with custom provider verification.
+///
+/// This validates the schema structure and also verifies that any custom
+/// provider references exist in the provided custom_providers map.
+/// This ensures validation happens even when n=0.
+pub fn validate_schema_with_custom(
+    schema: &BTreeMap<String, FieldSpec>,
+    custom_providers: &HashMap<String, CustomProvider>,
+) -> Result<(), SchemaError> {
+    for (field_name, spec) in schema {
+        validate_spec(spec).map_err(|e| SchemaError {
+            message: format!("Field '{}': {}", field_name, e.message),
+        })?;
+
+        // Additionally validate that custom providers exist
+        if let FieldSpec::Custom(provider_name) = spec {
+            if !custom_providers.contains_key(provider_name) {
+                return Err(SchemaError {
+                    message: format!(
+                        "Field '{}': custom provider '{}' not found",
+                        field_name, provider_name
+                    ),
+                });
+            }
+        }
     }
     Ok(())
 }
@@ -389,6 +449,36 @@ pub fn generate_value(
         }
         FieldSpec::Md5 => Ok(Value::String(identifiers::generate_md5(rng))),
         FieldSpec::Sha256 => Ok(Value::String(identifiers::generate_sha256(rng))),
+        FieldSpec::Custom(name) => {
+            // This should not be reached when calling generate_value directly
+            // Use generate_value_with_custom for custom provider support
+            Err(SchemaError {
+                message: format!(
+                    "Custom provider '{}' requires custom_providers map - use generate_value_with_custom",
+                    name
+                ),
+            })
+        }
+    }
+}
+
+/// Generate a value based on a field specification, with custom provider support.
+///
+/// This variant of generate_value() can handle FieldSpec::Custom variants
+/// by looking up the provider in the provided custom_providers map.
+pub fn generate_value_with_custom(
+    rng: &mut ForgeryRng,
+    locale: Locale,
+    spec: &FieldSpec,
+    custom_providers: &HashMap<String, CustomProvider>,
+) -> Result<Value, SchemaError> {
+    if let FieldSpec::Custom(name) = spec {
+        let provider = custom_providers.get(name).ok_or_else(|| SchemaError {
+            message: format!("Custom provider '{}' not found", name),
+        })?;
+        Ok(Value::String(provider.generate(rng)))
+    } else {
+        generate_value(rng, locale, spec)
     }
 }
 
@@ -506,21 +596,8 @@ pub fn generate_records(
     n: usize,
     schema: &BTreeMap<String, FieldSpec>,
 ) -> Result<Vec<BTreeMap<String, Value>>, SchemaError> {
-    // Validate schema upfront (even when n=0)
-    validate_schema(schema)?;
-
-    let mut records = Vec::with_capacity(n);
-
-    for _ in 0..n {
-        let mut record = BTreeMap::new();
-        for (field_name, spec) in schema {
-            let value = generate_value(rng, locale, spec)?;
-            record.insert(field_name.clone(), value);
-        }
-        records.push(record);
-    }
-
-    Ok(records)
+    // Delegate to the custom-aware version with empty providers map
+    generate_records_with_custom(rng, locale, n, schema, &HashMap::new())
 }
 
 /// Generate records as tuples based on a schema.
@@ -534,8 +611,51 @@ pub fn generate_records_tuples(
     schema: &BTreeMap<String, FieldSpec>,
     field_order: &[String],
 ) -> Result<Vec<Vec<Value>>, SchemaError> {
-    // Validate schema upfront (even when n=0)
-    validate_schema(schema)?;
+    // Delegate to the custom-aware version with empty providers map
+    generate_records_tuples_with_custom(rng, locale, n, schema, field_order, &HashMap::new())
+}
+
+/// Generate records based on a schema, with custom provider support.
+///
+/// This variant of generate_records() can handle FieldSpec::Custom variants
+/// by looking up providers in the provided custom_providers map.
+pub fn generate_records_with_custom(
+    rng: &mut ForgeryRng,
+    locale: Locale,
+    n: usize,
+    schema: &BTreeMap<String, FieldSpec>,
+    custom_providers: &HashMap<String, CustomProvider>,
+) -> Result<Vec<BTreeMap<String, Value>>, SchemaError> {
+    // Validate schema upfront (even when n=0), including custom provider existence
+    validate_schema_with_custom(schema, custom_providers)?;
+
+    let mut records = Vec::with_capacity(n);
+
+    for _ in 0..n {
+        let mut record = BTreeMap::new();
+        for (field_name, spec) in schema {
+            let value = generate_value_with_custom(rng, locale, spec, custom_providers)?;
+            record.insert(field_name.clone(), value);
+        }
+        records.push(record);
+    }
+
+    Ok(records)
+}
+
+/// Generate records as tuples based on a schema, with custom provider support.
+///
+/// This variant of generate_records_tuples() can handle FieldSpec::Custom variants.
+pub fn generate_records_tuples_with_custom(
+    rng: &mut ForgeryRng,
+    locale: Locale,
+    n: usize,
+    schema: &BTreeMap<String, FieldSpec>,
+    field_order: &[String],
+    custom_providers: &HashMap<String, CustomProvider>,
+) -> Result<Vec<Vec<Value>>, SchemaError> {
+    // Validate schema upfront (even when n=0), including custom provider existence
+    validate_schema_with_custom(schema, custom_providers)?;
 
     // Validate field_order: check for duplicates
     let mut seen = std::collections::HashSet::new();
@@ -576,7 +696,7 @@ pub fn generate_records_tuples(
             let spec = schema
                 .get(field_name)
                 .expect("field_name was validated to exist in schema");
-            let value = generate_value(rng, locale, spec)?;
+            let value = generate_value_with_custom(rng, locale, spec, custom_providers)?;
             record.push(value);
         }
         records.push(record);
