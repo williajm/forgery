@@ -107,17 +107,17 @@ fake2.emails(100)
 | Batch | Single | Description |
 |-------|--------|-------------|
 | `integers(n, min, max)` | `integer(min, max)` | Random integers in range |
-| `floats(n, min, max)` | `float_(min, max)` | Random floats in range |
+| `floats(n, min, max)` | `float_(min, max)` | Random floats in range (Note: `float_` avoids shadowing Python's `float` builtin) |
 | `uuids(n)` | `uuid()` | UUID v4 strings |
-| `md5s(n)` | `md5()` | MD5 hash strings |
-| `sha256s(n)` | `sha256()` | SHA256 hash strings |
+| `md5s(n)` | `md5()` | Random 32-char hex strings (MD5-like format, not cryptographic hashes) |
+| `sha256s(n)` | `sha256()` | Random 64-char hex strings (SHA256-like format, not cryptographic hashes) |
 
 ### Dates & Times
 
 | Batch | Single | Description |
 |-------|--------|-------------|
 | `dates(n, start, end)` | `date(start, end)` | Random dates (YYYY-MM-DD) |
-| `datetimes(n, start, end)` | `datetime(start, end)` | Random datetimes (ISO 8601) |
+| `datetimes(n, start, end)` | `datetime_(start, end)` | Random datetimes (ISO 8601). Note: `datetime_` avoids shadowing Python's `datetime` module |
 | `dates_of_birth(n, min_age, max_age)` | `date_of_birth(min_age, max_age)` | Birth dates for given age range |
 
 ### Addresses

@@ -154,7 +154,12 @@ pub fn validate_iban(iban: &str) -> bool {
         return false;
     }
 
-    // Move first 4 characters to end
+    // Ensure all characters are ASCII to avoid panic when slicing
+    if !clean.is_ascii() {
+        return false;
+    }
+
+    // Move first 4 characters to end (safe because we verified ASCII above)
     let rearranged = format!("{}{}", &clean[4..], &clean[..4]);
 
     // Convert letters to numbers
@@ -372,6 +377,15 @@ mod tests {
     fn test_iban_known_invalid() {
         assert!(!validate_iban("DE89370400440532013001")); // Changed last digit
         assert!(!validate_iban("XX00123456789")); // Invalid format
+    }
+
+    #[test]
+    fn test_iban_non_ascii_does_not_panic() {
+        // Non-ASCII characters should return false, not panic
+        assert!(!validate_iban("DE89370400440532013000日本"));
+        assert!(!validate_iban("日本89370400440532013000"));
+        assert!(!validate_iban("ÜÖ89370400440532013000"));
+        assert!(!validate_iban("🎉🎉89370400440532013000"));
     }
 
     #[test]

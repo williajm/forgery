@@ -12,7 +12,7 @@ use crate::providers::{
     phone, text,
 };
 use crate::rng::ForgeryRng;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fmt;
 
 /// Error type for schema-related errors.
@@ -265,17 +265,22 @@ fn generate_simple_value(rng: &mut ForgeryRng, type_name: &str) -> Result<Value,
 
 /// Generate records based on a schema.
 ///
-/// Returns a vector of HashMaps, where each HashMap represents a record
+/// Returns a vector of BTreeMaps, where each BTreeMap represents a record
 /// with field names as keys and generated values.
+///
+/// # Determinism
+///
+/// BTreeMap is used instead of HashMap to ensure deterministic iteration order,
+/// which guarantees that the same seed produces the same output across runs.
 pub fn generate_records(
     rng: &mut ForgeryRng,
     n: usize,
-    schema: &HashMap<String, FieldSpec>,
-) -> Result<Vec<HashMap<String, Value>>, SchemaError> {
+    schema: &BTreeMap<String, FieldSpec>,
+) -> Result<Vec<BTreeMap<String, Value>>, SchemaError> {
     let mut records = Vec::with_capacity(n);
 
     for _ in 0..n {
-        let mut record = HashMap::new();
+        let mut record = BTreeMap::new();
         for (field_name, spec) in schema {
             let value = generate_value(rng, spec)?;
             record.insert(field_name.clone(), value);
@@ -293,7 +298,7 @@ pub fn generate_records(
 pub fn generate_records_tuples(
     rng: &mut ForgeryRng,
     n: usize,
-    schema: &HashMap<String, FieldSpec>,
+    schema: &BTreeMap<String, FieldSpec>,
     field_order: &[String],
 ) -> Result<Vec<Vec<Value>>, SchemaError> {
     // Validate field order matches schema
@@ -324,8 +329,8 @@ pub fn generate_records_tuples(
 mod tests {
     use super::*;
 
-    fn create_test_schema() -> HashMap<String, FieldSpec> {
-        let mut schema = HashMap::new();
+    fn create_test_schema() -> BTreeMap<String, FieldSpec> {
+        let mut schema = BTreeMap::new();
         schema.insert("id".to_string(), FieldSpec::Simple("uuid".to_string()));
         schema.insert("name".to_string(), FieldSpec::Simple("name".to_string()));
         schema.insert("age".to_string(), FieldSpec::IntRange { min: 18, max: 65 });
@@ -641,7 +646,7 @@ mod proptest_tests {
             let mut rng = ForgeryRng::new();
             rng.seed(42);
 
-            let mut schema = HashMap::new();
+            let mut schema = BTreeMap::new();
             schema.insert("id".to_string(), FieldSpec::Simple("uuid".to_string()));
 
             let records = generate_records(&mut rng, n, &schema).unwrap();
@@ -693,7 +698,7 @@ mod proptest_tests {
             rng1.seed(seed_val);
             rng2.seed(seed_val);
 
-            let mut schema = HashMap::new();
+            let mut schema = BTreeMap::new();
             schema.insert("id".to_string(), FieldSpec::Simple("uuid".to_string()));
             schema.insert("name".to_string(), FieldSpec::Simple("name".to_string()));
 

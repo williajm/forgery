@@ -85,7 +85,11 @@ pub fn generate_dates(
     let mut dates = Vec::with_capacity(n);
     for _ in 0..n {
         let days = rng.gen_range(start_days, end_days);
-        let date = NaiveDate::from_num_days_from_ce_opt(days).unwrap();
+        let date = NaiveDate::from_num_days_from_ce_opt(days).ok_or_else(|| DateRangeError {
+            start: start.to_string(),
+            end: end.to_string(),
+            reason: format!("internal error: invalid days from CE value {}", days),
+        })?;
         dates.push(date.format("%Y-%m-%d").to_string());
     }
     Ok(dates)
@@ -127,7 +131,11 @@ pub fn generate_date(
     let start_days = start_date.num_days_from_ce();
     let end_days = end_date.num_days_from_ce();
     let days = rng.gen_range(start_days, end_days);
-    let date = NaiveDate::from_num_days_from_ce_opt(days).unwrap();
+    let date = NaiveDate::from_num_days_from_ce_opt(days).ok_or_else(|| DateRangeError {
+        start: start.to_string(),
+        end: end.to_string(),
+        reason: format!("internal error: invalid days from CE value {}", days),
+    })?;
     Ok(date.format("%Y-%m-%d").to_string())
 }
 
@@ -262,7 +270,11 @@ pub fn generate_datetimes(
     let mut datetimes = Vec::with_capacity(n);
     for _ in 0..n {
         let days = rng.gen_range(start_days, end_days);
-        let date = NaiveDate::from_num_days_from_ce_opt(days).unwrap();
+        let date = NaiveDate::from_num_days_from_ce_opt(days).ok_or_else(|| DateRangeError {
+            start: start.to_string(),
+            end: end.to_string(),
+            reason: format!("internal error: invalid days from CE value {}", days),
+        })?;
         let hour: u32 = rng.gen_range(0, 23);
         let minute: u32 = rng.gen_range(0, 59);
         let second: u32 = rng.gen_range(0, 59);
@@ -311,7 +323,11 @@ pub fn generate_datetime(
     let start_days = start_date.num_days_from_ce();
     let end_days = end_date.num_days_from_ce();
     let days = rng.gen_range(start_days, end_days);
-    let date = NaiveDate::from_num_days_from_ce_opt(days).unwrap();
+    let date = NaiveDate::from_num_days_from_ce_opt(days).ok_or_else(|| DateRangeError {
+        start: start.to_string(),
+        end: end.to_string(),
+        reason: format!("internal error: invalid days from CE value {}", days),
+    })?;
     let hour: u32 = rng.gen_range(0, 23);
     let minute: u32 = rng.gen_range(0, 59);
     let second: u32 = rng.gen_range(0, 59);

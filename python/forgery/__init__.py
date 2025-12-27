@@ -308,26 +308,42 @@ def floats(n: int, min: float = 0.0, max: float = 1.0) -> list[float]:
     return fake.floats(n, min, max)
 
 
-# === Hash Generation ===
+# === Hash-like Identifier Generation ===
 
 
 def md5() -> str:
-    """Generate a single random MD5 hash."""
+    """Generate a single random MD5-like hex string.
+
+    Note: This generates a random 32-character lowercase hex string that
+    matches the format of an MD5 hash. It is NOT a cryptographic hash of
+    any input data.
+    """
     return fake.md5()
 
 
 def md5s(n: int) -> list[str]:
-    """Generate a batch of random MD5 hashes."""
+    """Generate a batch of random MD5-like hex strings.
+
+    Note: These are random 32-character hex strings, not cryptographic hashes.
+    """
     return fake.md5s(n)
 
 
 def sha256() -> str:
-    """Generate a single random SHA256 hash."""
+    """Generate a single random SHA256-like hex string.
+
+    Note: This generates a random 64-character lowercase hex string that
+    matches the format of a SHA256 hash. It is NOT a cryptographic hash of
+    any input data.
+    """
     return fake.sha256()
 
 
 def sha256s(n: int) -> list[str]:
-    """Generate a batch of random SHA256 hashes."""
+    """Generate a batch of random SHA256-like hex strings.
+
+    Note: These are random 64-character hex strings, not cryptographic hashes.
+    """
     return fake.sha256s(n)
 
 

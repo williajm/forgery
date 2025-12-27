@@ -1,8 +1,35 @@
 //! Identifier generation provider.
 //!
-//! Generates UUIDs, hashes, and other identifier types.
+//! Generates UUIDs, and hash-like hex strings.
+//!
+//! # Note on MD5/SHA256
+//!
+//! The `generate_md5` and `generate_sha256` functions produce random hex strings
+//! that match the format of MD5 (32 chars) and SHA256 (64 chars) hashes.
+//! They are NOT cryptographic hashes of any input data - they are simply
+//! random hex strings useful for generating fake data.
 
 use crate::rng::ForgeryRng;
+
+/// Lookup table for fast hex encoding.
+/// Each index maps to a two-character lowercase hex string.
+const HEX_TABLE: &[u8; 512] = b"\
+000102030405060708090a0b0c0d0e0f\
+101112131415161718191a1b1c1d1e1f\
+202122232425262728292a2b2c2d2e2f\
+303132333435363738393a3b3c3d3e3f\
+404142434445464748494a4b4c4d4e4f\
+505152535455565758595a5b5c5d5e5f\
+606162636465666768696a6b6c6d6e6f\
+707172737475767778797a7b7c7d7e7f\
+808182838485868788898a8b8c8d8e8f\
+909192939495969798999a9b9c9d9e9f\
+a0a1a2a3a4a5a6a7a8a9aaabacadaeaf\
+b0b1b2b3b4b5b6b7b8b9babbbcbdbebf\
+c0c1c2c3c4c5c6c7c8c9cacbcccdcecf\
+d0d1d2d3d4d5d6d7d8d9dadbdcdddedf\
+e0e1e2e3e4e5e6e7e8e9eaebecedeeef\
+f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff";
 
 /// Generate a batch of UUIDv4 strings.
 ///
@@ -44,16 +71,50 @@ pub fn generate_uuid(rng: &mut ForgeryRng) -> String {
     format_uuid(&bytes)
 }
 
-/// Format 16 bytes as a UUID string.
+/// Format 16 bytes as a UUID string using lookup table for performance.
 fn format_uuid(bytes: &[u8; 16]) -> String {
-    format!(
-        "{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
-        bytes[0], bytes[1], bytes[2], bytes[3],
-        bytes[4], bytes[5],
-        bytes[6], bytes[7],
-        bytes[8], bytes[9],
-        bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]
-    )
+    // Pre-allocate exact size: 32 hex chars + 4 dashes = 36
+    let mut result = String::with_capacity(36);
+
+    // Helper to push a byte as two hex chars using the lookup table
+    #[inline(always)]
+    fn push_hex(s: &mut String, byte: u8) {
+        let idx = (byte as usize) * 2;
+        s.push(HEX_TABLE[idx] as char);
+        s.push(HEX_TABLE[idx + 1] as char);
+    }
+
+    // xxxxxxxx-
+    push_hex(&mut result, bytes[0]);
+    push_hex(&mut result, bytes[1]);
+    push_hex(&mut result, bytes[2]);
+    push_hex(&mut result, bytes[3]);
+    result.push('-');
+
+    // xxxx-
+    push_hex(&mut result, bytes[4]);
+    push_hex(&mut result, bytes[5]);
+    result.push('-');
+
+    // xxxx-
+    push_hex(&mut result, bytes[6]);
+    push_hex(&mut result, bytes[7]);
+    result.push('-');
+
+    // xxxx-
+    push_hex(&mut result, bytes[8]);
+    push_hex(&mut result, bytes[9]);
+    result.push('-');
+
+    // xxxxxxxxxxxx
+    push_hex(&mut result, bytes[10]);
+    push_hex(&mut result, bytes[11]);
+    push_hex(&mut result, bytes[12]);
+    push_hex(&mut result, bytes[13]);
+    push_hex(&mut result, bytes[14]);
+    push_hex(&mut result, bytes[15]);
+
+    result
 }
 
 /// Generate a batch of MD5-like hash strings (32 lowercase hex characters).
@@ -110,9 +171,17 @@ pub fn generate_sha256(rng: &mut ForgeryRng) -> String {
     format_hex(&bytes)
 }
 
-/// Format bytes as a lowercase hex string.
+/// Format bytes as a lowercase hex string using a lookup table for performance.
 fn format_hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|b| format!("{:02x}", b)).collect()
+    let mut result = String::with_capacity(bytes.len() * 2);
+    for &byte in bytes {
+        let idx = (byte as usize) * 2;
+        // SAFETY: idx is always in range 0..512 since byte is u8 (0..256)
+        // and HEX_TABLE has exactly 512 bytes (256 entries * 2 chars each)
+        result.push(HEX_TABLE[idx] as char);
+        result.push(HEX_TABLE[idx + 1] as char);
+    }
+    result
 }
 
 #[cfg(test)]

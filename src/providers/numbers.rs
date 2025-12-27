@@ -32,15 +32,37 @@ pub struct FloatRangeError {
     pub min: f64,
     /// The invalid maximum value.
     pub max: f64,
+    /// The reason for the error.
+    pub reason: FloatRangeErrorReason,
+}
+
+/// Reason for a float range error.
+#[derive(Debug, Clone, PartialEq)]
+pub enum FloatRangeErrorReason {
+    /// min > max
+    MinGreaterThanMax,
+    /// min or max is NaN
+    NonFiniteValue,
 }
 
 impl std::fmt::Display for FloatRangeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "min ({}) must be less than or equal to max ({})",
-            self.min, self.max
-        )
+        match self.reason {
+            FloatRangeErrorReason::MinGreaterThanMax => {
+                write!(
+                    f,
+                    "min ({}) must be less than or equal to max ({})",
+                    self.min, self.max
+                )
+            }
+            FloatRangeErrorReason::NonFiniteValue => {
+                write!(
+                    f,
+                    "min ({}) and max ({}) must be finite values (not NaN or infinity)",
+                    self.min, self.max
+                )
+            }
+        }
     }
 }
 
@@ -96,20 +118,33 @@ pub fn generate_integer(rng: &mut ForgeryRng, min: i64, max: i64) -> Result<i64,
 ///
 /// * `rng` - The random number generator to use
 /// * `n` - Number of floats to generate
-/// * `min` - Minimum value (inclusive)
-/// * `max` - Maximum value (inclusive)
+/// * `min` - Minimum value (inclusive, must be finite)
+/// * `max` - Maximum value (inclusive, must be finite)
 ///
 /// # Errors
 ///
-/// Returns `FloatRangeError` if `min > max`.
+/// Returns `FloatRangeError` if `min > max` or if either value is NaN or infinity.
 pub fn generate_floats(
     rng: &mut ForgeryRng,
     n: usize,
     min: f64,
     max: f64,
 ) -> Result<Vec<f64>, FloatRangeError> {
+    // Check for non-finite values (NaN or infinity)
+    if !min.is_finite() || !max.is_finite() {
+        return Err(FloatRangeError {
+            min,
+            max,
+            reason: FloatRangeErrorReason::NonFiniteValue,
+        });
+    }
+
     if min > max {
-        return Err(FloatRangeError { min, max });
+        return Err(FloatRangeError {
+            min,
+            max,
+            reason: FloatRangeErrorReason::MinGreaterThanMax,
+        });
     }
 
     let mut floats = Vec::with_capacity(n);
@@ -125,11 +160,24 @@ pub fn generate_floats(
 ///
 /// # Errors
 ///
-/// Returns `FloatRangeError` if `min > max`.
+/// Returns `FloatRangeError` if `min > max` or if either value is NaN or infinity.
 #[inline]
 pub fn generate_float(rng: &mut ForgeryRng, min: f64, max: f64) -> Result<f64, FloatRangeError> {
+    // Check for non-finite values (NaN or infinity)
+    if !min.is_finite() || !max.is_finite() {
+        return Err(FloatRangeError {
+            min,
+            max,
+            reason: FloatRangeErrorReason::NonFiniteValue,
+        });
+    }
+
     if min > max {
-        return Err(FloatRangeError { min, max });
+        return Err(FloatRangeError {
+            min,
+            max,
+            reason: FloatRangeErrorReason::MinGreaterThanMax,
+        });
     }
     Ok(rng.gen_range(min, max))
 }
@@ -465,6 +513,7 @@ mod tests {
         let err = FloatRangeError {
             min: 50.0,
             max: 10.0,
+            reason: FloatRangeErrorReason::MinGreaterThanMax,
         };
         assert!(err.to_string().contains("min (50)"));
         assert!(err.to_string().contains("max (10)"));
@@ -475,6 +524,7 @@ mod tests {
         let err = FloatRangeError {
             min: 50.0,
             max: 10.0,
+            reason: FloatRangeErrorReason::MinGreaterThanMax,
         };
         let debug_str = format!("{:?}", err);
         assert!(debug_str.contains("FloatRangeError"));
@@ -485,9 +535,59 @@ mod tests {
         let err1 = FloatRangeError {
             min: 50.0,
             max: 10.0,
+            reason: FloatRangeErrorReason::MinGreaterThanMax,
         };
         let err2 = err1.clone();
         assert_eq!(err1, err2);
+    }
+
+    #[test]
+    fn test_float_nan_rejected() {
+        let mut rng = ForgeryRng::new();
+
+        // NaN min
+        let result = generate_float(&mut rng, f64::NAN, 1.0);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(err.reason, FloatRangeErrorReason::NonFiniteValue);
+
+        // NaN max
+        let result = generate_float(&mut rng, 0.0, f64::NAN);
+        assert!(result.is_err());
+
+        // Both NaN
+        let result = generate_float(&mut rng, f64::NAN, f64::NAN);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_float_infinity_rejected() {
+        let mut rng = ForgeryRng::new();
+
+        // Positive infinity
+        let result = generate_float(&mut rng, 0.0, f64::INFINITY);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(err.reason, FloatRangeErrorReason::NonFiniteValue);
+
+        // Negative infinity
+        let result = generate_float(&mut rng, f64::NEG_INFINITY, 0.0);
+        assert!(result.is_err());
+
+        // Both infinite
+        let result = generate_float(&mut rng, f64::NEG_INFINITY, f64::INFINITY);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_floats_batch_nan_rejected() {
+        let mut rng = ForgeryRng::new();
+
+        let result = generate_floats(&mut rng, 10, f64::NAN, 1.0);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(err.reason, FloatRangeErrorReason::NonFiniteValue);
+        assert!(err.to_string().contains("finite values"));
     }
 
     #[test]

@@ -14,6 +14,7 @@
 #![deny(missing_docs)]
 
 mod data;
+pub mod error;
 mod providers;
 mod rng;
 
