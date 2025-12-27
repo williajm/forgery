@@ -2,10 +2,8 @@
 //!
 //! Generates records based on a schema specification.
 //!
-//! Note: This module is implemented but not yet exposed to Python.
-//! It will be available in a future release.
-
-#![allow(dead_code)]
+//! This module provides the `records()` and `records_tuples()` functions
+//! for generating structured data based on a schema DSL.
 
 use crate::providers::{
     address, colors, company, datetime, finance, identifiers, internet, names, network, numbers,

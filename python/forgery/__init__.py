@@ -83,6 +83,9 @@ __all__ = [
     # Phone
     "phone_number",
     "phone_numbers",
+    # Records
+    "records",
+    "records_tuples",
     "rgb_color",
     "rgb_colors",
     "safe_email",
@@ -655,3 +658,75 @@ def iban() -> str:
 def ibans(n: int) -> list[str]:
     """Generate a batch of random IBANs."""
     return fake.ibans(n)
+
+
+# === Records Generation ===
+
+# Type alias for schema field specifications
+FieldSpec = str | tuple[str, ...]
+Schema = dict[str, FieldSpec]
+
+
+def records(n: int, schema: Schema) -> list[dict[str, object]]:
+    """Generate structured records based on a schema.
+
+    The schema is a dictionary mapping field names to type specifications:
+    - Simple types: "name", "email", "uuid", "int", "float", etc.
+    - Integer range: ("int", min, max)
+    - Float range: ("float", min, max)
+    - Text with limits: ("text", min_chars, max_chars)
+    - Date range: ("date", start, end)
+    - Choice: ("choice", ["option1", "option2", ...])
+
+    Args:
+        n: Number of records to generate.
+        schema: Dictionary mapping field names to type specifications.
+
+    Returns:
+        A list of dictionaries, each containing the generated fields.
+
+    Example:
+        >>> from forgery import records, seed
+        >>> seed(42)
+        >>> data = records(3, {
+        ...     "id": "uuid",
+        ...     "name": "name",
+        ...     "age": ("int", 18, 65),
+        ...     "status": ("choice", ["active", "inactive"]),
+        ... })
+        >>> len(data)
+        3
+        >>> "id" in data[0] and "name" in data[0]
+        True
+    """
+    return fake.records(n, schema)
+
+
+def records_tuples(n: int, schema: Schema) -> list[tuple[object, ...]]:
+    """Generate structured records as tuples based on a schema.
+
+    This is faster than records() since it avoids creating dictionaries.
+    Values are returned in alphabetical order of the schema keys.
+
+    The schema format is identical to records().
+
+    Args:
+        n: Number of records to generate.
+        schema: Dictionary mapping field names to type specifications.
+
+    Returns:
+        A list of tuples, each containing values in alphabetical key order.
+
+    Example:
+        >>> from forgery import records_tuples, seed
+        >>> seed(42)
+        >>> data = records_tuples(3, {
+        ...     "age": ("int", 18, 65),
+        ...     "name": "name",
+        ... })
+        >>> len(data)
+        3
+        >>> len(data[0])  # (age, name) - alphabetical order
+        2
+    """
+    return fake.records_tuples(n, schema)

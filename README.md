@@ -172,6 +172,60 @@ fake2.emails(100)
 | `hex_colors(n)` | `hex_color()` | Hex color codes (#RRGGBB) |
 | `rgb_colors(n)` | `rgb_color()` | RGB tuples (r, g, b) |
 
+## Structured Data Generation
+
+Generate entire datasets with a single call using schema definitions:
+
+### records()
+
+Returns a list of dictionaries:
+
+```python
+from forgery import records, seed
+
+seed(42)
+data = records(1000, {
+    "id": "uuid",
+    "name": "name",
+    "email": "email",
+    "age": ("int", 18, 65),
+    "salary": ("float", 30000.0, 150000.0),
+    "hire_date": ("date", "2020-01-01", "2024-12-31"),
+    "bio": ("text", 50, 200),
+    "status": ("choice", ["active", "inactive", "pending"]),
+})
+
+# data[0] = {"id": "88917925-...", "name": "Austin Bell", "age": 50, ...}
+```
+
+### records_tuples()
+
+Returns a list of tuples (faster, values in alphabetical key order):
+
+```python
+from forgery import records_tuples, seed
+
+seed(42)
+data = records_tuples(1000, {
+    "age": ("int", 18, 65),
+    "name": "name",
+})
+# data[0] = (50, "Ryan Grant")  # (age, name) - alphabetical order
+```
+
+### Schema Field Types
+
+| Type | Syntax | Example |
+|------|--------|---------|
+| Simple types | `"type_name"` | `"name"`, `"email"`, `"uuid"`, `"int"`, `"float"` |
+| Integer range | `("int", min, max)` | `("int", 18, 65)` |
+| Float range | `("float", min, max)` | `("float", 0.0, 100.0)` |
+| Text with limits | `("text", min_chars, max_chars)` | `("text", 50, 200)` |
+| Date range | `("date", start, end)` | `("date", "2020-01-01", "2024-12-31")` |
+| Choice | `("choice", [options])` | `("choice", ["a", "b", "c"])` |
+
+All simple types from the generators above are supported: `name`, `first_name`, `last_name`, `email`, `safe_email`, `free_email`, `phone`, `uuid`, `int`, `float`, `date`, `datetime`, `street_address`, `city`, `state`, `country`, `zip_code`, `address`, `company`, `job`, `catch_phrase`, `url`, `domain_name`, `ipv4`, `ipv6`, `mac_address`, `credit_card`, `iban`, `sentence`, `paragraph`, `text`, `color`, `hex_color`, `rgb_color`, `md5`, `sha256`.
+
 ## Performance
 
 Benchmark generating 100,000 items:
