@@ -113,6 +113,35 @@ pub fn generate_texts(
     texts
 }
 
+/// Capitalize the first character of a word.
+#[inline]
+fn capitalize_word(word: &str) -> String {
+    let mut chars = word.chars();
+    match chars.next() {
+        Some(c) => {
+            let upper = c.to_uppercase().next().unwrap_or(c);
+            format!("{}{}", upper, chars.as_str())
+        }
+        None => String::new(),
+    }
+}
+
+/// Truncate a string to max_chars, respecting UTF-8 character boundaries.
+#[inline]
+fn truncate_to_char_boundary(text: &mut String, max_chars: usize) {
+    if text.len() <= max_chars {
+        return;
+    }
+    // Find the last valid character boundary before max_chars
+    let truncate_at = text
+        .char_indices()
+        .take_while(|(i, _)| *i <= max_chars)
+        .last()
+        .map(|(i, _)| i)
+        .unwrap_or(0);
+    text.truncate(truncate_at);
+}
+
 /// Generate a single random text block with character limits.
 ///
 /// The text will be between min_chars and max_chars in length.
@@ -140,41 +169,19 @@ pub fn generate_text(
     };
 
     let mut text = String::new();
-    let mut is_first = true;
 
+    // First word - capitalize it
+    let first_word = *rng.choose(lorem_words);
+    text.push_str(&capitalize_word(first_word));
+
+    // Remaining words
     while text.len() < target_len {
-        if !is_first {
-            text.push(' ');
-        }
-
-        let word = *rng.choose(lorem_words);
-
-        if is_first {
-            // Capitalize first word
-            let mut chars = word.chars();
-            if let Some(c) = chars.next() {
-                text.push(c.to_uppercase().next().unwrap_or(c));
-                text.push_str(chars.as_str());
-            }
-            is_first = false;
-        } else {
-            text.push_str(word);
-        }
+        text.push(' ');
+        let word = rng.choose(lorem_words);
+        text.push_str(word);
     }
 
-    // Truncate to max_chars if needed
-    if text.len() > max_chars {
-        // For multi-byte chars, find a safe truncation point
-        let mut last_valid = 0;
-        for (i, _) in text.char_indices() {
-            if i > max_chars {
-                break;
-            }
-            last_valid = i;
-        }
-        text.truncate(last_valid);
-    }
-
+    truncate_to_char_boundary(&mut text, max_chars);
     text
 }
 
