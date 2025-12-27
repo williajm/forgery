@@ -87,7 +87,7 @@ pub fn generate_item(rng: &mut ForgeryRng) -> String {
 - `gen_range(min, max)` is INCLUSIVE on both ends (`min..=max`)
 - `date_of_birth` uses fixed reference date (2024-01-01) for determinism
 - Each `Faker` instance has its own RNG state (not thread-safe)
-- `records()` is implemented in Rust but NOT yet exposed to Python
+- `records_tuples()` returns values in alphabetical key order (uses BTreeMap)
 
 ## CI Requirements
 

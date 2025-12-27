@@ -2,10 +2,8 @@
 //!
 //! Generates records based on a schema specification.
 //!
-//! Note: This module is implemented but not yet exposed to Python.
-//! It will be available in a future release.
-
-#![allow(dead_code)]
+//! This module provides the `records()` and `records_tuples()` functions
+//! for generating structured data based on a schema DSL.
 
 use crate::providers::{
     address, colors, company, datetime, finance, identifiers, internet, names, network, numbers,
@@ -18,6 +16,7 @@ use std::fmt;
 /// Error type for schema-related errors.
 #[derive(Debug, Clone)]
 pub struct SchemaError {
+    /// The error message.
     pub message: String,
 }
 
@@ -35,24 +34,118 @@ pub enum FieldSpec {
     /// Simple type (e.g., "name", "email", "uuid")
     Simple(String),
     /// Integer range: ("int", min, max)
-    IntRange { min: i64, max: i64 },
+    IntRange {
+        /// Minimum value (inclusive).
+        min: i64,
+        /// Maximum value (inclusive).
+        max: i64,
+    },
     /// Float range: ("float", min, max)
-    FloatRange { min: f64, max: f64 },
+    FloatRange {
+        /// Minimum value (inclusive).
+        min: f64,
+        /// Maximum value (inclusive).
+        max: f64,
+    },
     /// Text with character limits: ("text", min_chars, max_chars)
-    Text { min_chars: usize, max_chars: usize },
+    Text {
+        /// Minimum number of characters.
+        min_chars: usize,
+        /// Maximum number of characters.
+        max_chars: usize,
+    },
     /// Date range: ("date", start, end)
-    DateRange { start: String, end: String },
+    DateRange {
+        /// Start date in YYYY-MM-DD format.
+        start: String,
+        /// End date in YYYY-MM-DD format.
+        end: String,
+    },
     /// Choice from options: ("choice", ["a", "b", "c"])
     Choice(Vec<String>),
+    /// Name field type.
+    Name,
+    /// First name field type.
+    FirstName,
+    /// Last name field type.
+    LastName,
+    /// Email field type.
+    Email,
+    /// Safe email field type.
+    SafeEmail,
+    /// Free email field type.
+    FreeEmail,
+    /// Phone field type.
+    Phone,
+    /// UUID field type.
+    Uuid,
+    /// Integer with default range (0-100).
+    Int,
+    /// Float with default range (0.0-1.0).
+    Float,
+    /// Date with default range.
+    Date,
+    /// DateTime field type.
+    DateTime,
+    /// Street address field type.
+    StreetAddress,
+    /// City field type.
+    City,
+    /// State field type.
+    State,
+    /// Country field type.
+    Country,
+    /// Zip code field type.
+    ZipCode,
+    /// Full address field type.
+    Address,
+    /// Company name field type.
+    Company,
+    /// Job title field type.
+    Job,
+    /// Catch phrase field type.
+    CatchPhrase,
+    /// URL field type.
+    Url,
+    /// Domain name field type.
+    DomainName,
+    /// IPv4 address field type.
+    Ipv4,
+    /// IPv6 address field type.
+    Ipv6,
+    /// MAC address field type.
+    MacAddress,
+    /// Credit card number field type.
+    CreditCard,
+    /// IBAN field type.
+    Iban,
+    /// Sentence field type.
+    Sentence,
+    /// Paragraph field type.
+    Paragraph,
+    /// Color name field type.
+    Color,
+    /// Hex color field type.
+    HexColor,
+    /// RGB color field type.
+    RgbColor,
+    /// MD5 hash field type.
+    Md5,
+    /// SHA256 hash field type.
+    Sha256,
 }
 
 /// A generated value that can be various types.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
+    /// A string value.
     String(String),
+    /// An integer value.
     Int(i64),
+    /// A floating-point value.
     Float(f64),
-    Tuple3U8(u8, u8, u8), // For RGB colors
+    /// A tuple of three u8 values (for RGB colors).
+    Tuple3U8(u8, u8, u8),
 }
 
 impl Value {
@@ -69,52 +162,114 @@ impl Value {
 
 /// Parse a simple type name into a FieldSpec.
 pub fn parse_simple_type(type_name: &str) -> Result<FieldSpec, SchemaError> {
-    let valid_types = [
-        "name",
-        "first_name",
-        "last_name",
-        "email",
-        "safe_email",
-        "free_email",
-        "uuid",
-        "int",
-        "float",
-        "phone",
-        "address",
-        "street_address",
-        "city",
-        "state",
-        "country",
-        "zip_code",
-        "company",
-        "job",
-        "catch_phrase",
-        "url",
-        "domain_name",
-        "ipv4",
-        "ipv6",
-        "mac_address",
-        "color",
-        "hex_color",
-        "rgb_color",
-        "credit_card",
-        "iban",
-        "date",
-        "datetime",
-        "md5",
-        "sha256",
-        "sentence",
-        "paragraph",
-        "text",
-    ];
-
-    if valid_types.contains(&type_name) {
-        Ok(FieldSpec::Simple(type_name.to_string()))
-    } else {
-        Err(SchemaError {
+    match type_name {
+        "name" => Ok(FieldSpec::Name),
+        "first_name" => Ok(FieldSpec::FirstName),
+        "last_name" => Ok(FieldSpec::LastName),
+        "email" => Ok(FieldSpec::Email),
+        "safe_email" => Ok(FieldSpec::SafeEmail),
+        "free_email" => Ok(FieldSpec::FreeEmail),
+        "uuid" => Ok(FieldSpec::Uuid),
+        "int" => Ok(FieldSpec::Int),
+        "float" => Ok(FieldSpec::Float),
+        "phone" => Ok(FieldSpec::Phone),
+        "address" => Ok(FieldSpec::Address),
+        "street_address" => Ok(FieldSpec::StreetAddress),
+        "city" => Ok(FieldSpec::City),
+        "state" => Ok(FieldSpec::State),
+        "country" => Ok(FieldSpec::Country),
+        "zip_code" => Ok(FieldSpec::ZipCode),
+        "company" => Ok(FieldSpec::Company),
+        "job" => Ok(FieldSpec::Job),
+        "catch_phrase" => Ok(FieldSpec::CatchPhrase),
+        "url" => Ok(FieldSpec::Url),
+        "domain_name" => Ok(FieldSpec::DomainName),
+        "ipv4" => Ok(FieldSpec::Ipv4),
+        "ipv6" => Ok(FieldSpec::Ipv6),
+        "mac_address" => Ok(FieldSpec::MacAddress),
+        "color" => Ok(FieldSpec::Color),
+        "hex_color" => Ok(FieldSpec::HexColor),
+        "rgb_color" => Ok(FieldSpec::RgbColor),
+        "credit_card" => Ok(FieldSpec::CreditCard),
+        "iban" => Ok(FieldSpec::Iban),
+        "date" => Ok(FieldSpec::Date),
+        "datetime" => Ok(FieldSpec::DateTime),
+        "md5" => Ok(FieldSpec::Md5),
+        "sha256" => Ok(FieldSpec::Sha256),
+        "sentence" => Ok(FieldSpec::Sentence),
+        "paragraph" => Ok(FieldSpec::Paragraph),
+        "text" => Ok(FieldSpec::Simple("text".to_string())),
+        _ => Err(SchemaError {
             message: format!("Unknown type: {}", type_name),
-        })
+        }),
     }
+}
+
+/// Validate a field specification without generating a value.
+///
+/// This allows schema validation to happen upfront, even when n=0.
+pub fn validate_spec(spec: &FieldSpec) -> Result<(), SchemaError> {
+    match spec {
+        FieldSpec::Simple(type_name) => {
+            // Validate that the type name is known
+            parse_simple_type(type_name)?;
+            Ok(())
+        }
+        FieldSpec::IntRange { min, max } => {
+            if min > max {
+                return Err(SchemaError {
+                    message: format!("Invalid int range: {} > {}", min, max),
+                });
+            }
+            Ok(())
+        }
+        FieldSpec::FloatRange { min, max } => {
+            if min > max {
+                return Err(SchemaError {
+                    message: format!("Invalid float range: {} > {}", min, max),
+                });
+            }
+            Ok(())
+        }
+        FieldSpec::Text {
+            min_chars,
+            max_chars,
+        } => {
+            if min_chars > max_chars {
+                return Err(SchemaError {
+                    message: format!("Invalid text range: {} > {}", min_chars, max_chars),
+                });
+            }
+            Ok(())
+        }
+        FieldSpec::DateRange { .. } => {
+            // Date validation requires parsing, which is done during generation
+            // We could add date format validation here if needed
+            Ok(())
+        }
+        FieldSpec::Choice(options) => {
+            if options.is_empty() {
+                return Err(SchemaError {
+                    message: "Choice options cannot be empty".to_string(),
+                });
+            }
+            Ok(())
+        }
+        // All direct type variants are always valid
+        _ => Ok(()),
+    }
+}
+
+/// Validate an entire schema without generating any values.
+///
+/// This ensures schema validation happens even when n=0.
+pub fn validate_schema(schema: &BTreeMap<String, FieldSpec>) -> Result<(), SchemaError> {
+    for (field_name, spec) in schema {
+        validate_spec(spec).map_err(|e| SchemaError {
+            message: format!("Field '{}': {}", field_name, e.message),
+        })?;
+    }
+    Ok(())
 }
 
 /// Generate a value based on a field specification.
@@ -165,6 +320,68 @@ pub fn generate_value(rng: &mut ForgeryRng, spec: &FieldSpec) -> Result<Value, S
             let val = rng.choose(options).clone();
             Ok(Value::String(val))
         }
+        // Direct type variants
+        FieldSpec::Name => Ok(Value::String(names::generate_name(rng))),
+        FieldSpec::FirstName => Ok(Value::String(names::generate_first_name(rng))),
+        FieldSpec::LastName => Ok(Value::String(names::generate_last_name(rng))),
+        FieldSpec::Email => Ok(Value::String(internet::generate_email(rng))),
+        FieldSpec::SafeEmail => Ok(Value::String(internet::generate_safe_email(rng))),
+        FieldSpec::FreeEmail => Ok(Value::String(internet::generate_free_email(rng))),
+        FieldSpec::Phone => Ok(Value::String(phone::generate_phone_number(rng))),
+        FieldSpec::Uuid => Ok(Value::String(identifiers::generate_uuid(rng))),
+        FieldSpec::Int => Ok(Value::Int(numbers::generate_integer(rng, 0, 100).map_err(
+            |e| SchemaError {
+                message: e.to_string(),
+            },
+        )?)),
+        FieldSpec::Float => Ok(Value::Float(
+            numbers::generate_float(rng, 0.0, 1.0).map_err(|e| SchemaError {
+                message: e.to_string(),
+            })?,
+        )),
+        FieldSpec::Date => {
+            let val = datetime::generate_date(rng, "2000-01-01", "2030-12-31").map_err(|e| {
+                SchemaError {
+                    message: e.to_string(),
+                }
+            })?;
+            Ok(Value::String(val))
+        }
+        FieldSpec::DateTime => {
+            let val =
+                datetime::generate_datetime(rng, "2000-01-01", "2030-12-31").map_err(|e| {
+                    SchemaError {
+                        message: e.to_string(),
+                    }
+                })?;
+            Ok(Value::String(val))
+        }
+        FieldSpec::StreetAddress => Ok(Value::String(address::generate_street_address(rng))),
+        FieldSpec::City => Ok(Value::String(address::generate_city(rng))),
+        FieldSpec::State => Ok(Value::String(address::generate_state(rng))),
+        FieldSpec::Country => Ok(Value::String(address::generate_country(rng))),
+        FieldSpec::ZipCode => Ok(Value::String(address::generate_zip_code(rng))),
+        FieldSpec::Address => Ok(Value::String(address::generate_address(rng))),
+        FieldSpec::Company => Ok(Value::String(company::generate_company(rng))),
+        FieldSpec::Job => Ok(Value::String(company::generate_job(rng))),
+        FieldSpec::CatchPhrase => Ok(Value::String(company::generate_catch_phrase(rng))),
+        FieldSpec::Url => Ok(Value::String(network::generate_url(rng))),
+        FieldSpec::DomainName => Ok(Value::String(network::generate_domain_name(rng))),
+        FieldSpec::Ipv4 => Ok(Value::String(network::generate_ipv4(rng))),
+        FieldSpec::Ipv6 => Ok(Value::String(network::generate_ipv6(rng))),
+        FieldSpec::MacAddress => Ok(Value::String(network::generate_mac_address(rng))),
+        FieldSpec::CreditCard => Ok(Value::String(finance::generate_credit_card(rng))),
+        FieldSpec::Iban => Ok(Value::String(finance::generate_iban(rng))),
+        FieldSpec::Sentence => Ok(Value::String(text::generate_sentence(rng, 10))),
+        FieldSpec::Paragraph => Ok(Value::String(text::generate_paragraph(rng, 5))),
+        FieldSpec::Color => Ok(Value::String(colors::generate_color(rng))),
+        FieldSpec::HexColor => Ok(Value::String(colors::generate_hex_color(rng))),
+        FieldSpec::RgbColor => {
+            let (r, g, b) = colors::generate_rgb_color(rng);
+            Ok(Value::Tuple3U8(r, g, b))
+        }
+        FieldSpec::Md5 => Ok(Value::String(identifiers::generate_md5(rng))),
+        FieldSpec::Sha256 => Ok(Value::String(identifiers::generate_sha256(rng))),
     }
 }
 
@@ -187,11 +404,11 @@ fn generate_simple_value(rng: &mut ForgeryRng, type_name: &str) -> Result<Value,
         "sha256" => Ok(Value::String(identifiers::generate_sha256(rng))),
 
         // Numbers (defaults)
-        "int" => Ok(Value::Int(
-            numbers::generate_integer(rng, 0, 1000).map_err(|e| SchemaError {
+        "int" => Ok(Value::Int(numbers::generate_integer(rng, 0, 100).map_err(
+            |e| SchemaError {
                 message: e.to_string(),
-            })?,
-        )),
+            },
+        )?)),
         "float" => Ok(Value::Float(
             numbers::generate_float(rng, 0.0, 1.0).map_err(|e| SchemaError {
                 message: e.to_string(),
@@ -277,6 +494,9 @@ pub fn generate_records(
     n: usize,
     schema: &BTreeMap<String, FieldSpec>,
 ) -> Result<Vec<BTreeMap<String, Value>>, SchemaError> {
+    // Validate schema upfront (even when n=0)
+    validate_schema(schema)?;
+
     let mut records = Vec::with_capacity(n);
 
     for _ in 0..n {
@@ -301,7 +521,20 @@ pub fn generate_records_tuples(
     schema: &BTreeMap<String, FieldSpec>,
     field_order: &[String],
 ) -> Result<Vec<Vec<Value>>, SchemaError> {
-    // Validate field order matches schema
+    // Validate schema upfront (even when n=0)
+    validate_schema(schema)?;
+
+    // Validate field_order: check for duplicates
+    let mut seen = std::collections::HashSet::new();
+    for field in field_order {
+        if !seen.insert(field) {
+            return Err(SchemaError {
+                message: format!("Duplicate field in field_order: '{}'", field),
+            });
+        }
+    }
+
+    // Validate field_order: all fields must exist in schema
     for field in field_order {
         if !schema.contains_key(field) {
             return Err(SchemaError {
@@ -310,12 +543,26 @@ pub fn generate_records_tuples(
         }
     }
 
+    // Validate field_order: must cover all schema fields
+    if field_order.len() != schema.len() {
+        let missing: Vec<_> = schema.keys().filter(|k| !field_order.contains(k)).collect();
+        return Err(SchemaError {
+            message: format!(
+                "field_order must cover all schema fields. Missing: {:?}",
+                missing
+            ),
+        });
+    }
+
     let mut records = Vec::with_capacity(n);
 
     for _ in 0..n {
         let mut record = Vec::with_capacity(field_order.len());
         for field_name in field_order {
-            let spec = schema.get(field_name).unwrap();
+            // Field existence is validated at the start of this function
+            let spec = schema
+                .get(field_name)
+                .expect("field_name was validated to exist in schema");
             let value = generate_value(rng, spec)?;
             record.push(value);
         }
@@ -631,6 +878,72 @@ mod tests {
 
         let result = generate_records_tuples(&mut rng, 10, &schema, &field_order);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_duplicate_field_in_order() {
+        let mut rng = ForgeryRng::new();
+
+        let schema = create_test_schema();
+        let field_order = vec![
+            "id".to_string(),
+            "name".to_string(),
+            "id".to_string(), // duplicate
+            "age".to_string(),
+            "salary".to_string(),
+            "status".to_string(),
+        ];
+
+        let result = generate_records_tuples(&mut rng, 10, &schema, &field_order);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .message
+            .contains("Duplicate field in field_order"));
+    }
+
+    #[test]
+    fn test_field_order_missing_fields() {
+        let mut rng = ForgeryRng::new();
+
+        let schema = create_test_schema();
+        // Only 3 fields, but schema has 5
+        let field_order = vec!["id".to_string(), "name".to_string(), "age".to_string()];
+
+        let result = generate_records_tuples(&mut rng, 10, &schema, &field_order);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .message
+            .contains("field_order must cover all schema fields"));
+    }
+
+    #[test]
+    fn test_schema_validation_when_n_is_zero() {
+        let mut rng = ForgeryRng::new();
+
+        let mut schema = BTreeMap::new();
+        schema.insert("age".to_string(), FieldSpec::IntRange { min: 100, max: 10 }); // invalid
+
+        // Even with n=0, schema should be validated
+        let result = generate_records(&mut rng, 0, &schema);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().message.contains("Invalid int range"));
+    }
+
+    #[test]
+    fn test_tuples_schema_validation_when_n_is_zero() {
+        let mut rng = ForgeryRng::new();
+
+        let mut schema = BTreeMap::new();
+        schema.insert("status".to_string(), FieldSpec::Choice(vec![])); // empty choice
+
+        let field_order = vec!["status".to_string()];
+
+        // Even with n=0, schema should be validated
+        let result = generate_records_tuples(&mut rng, 0, &schema, &field_order);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().message.contains("empty"));
     }
 }
 

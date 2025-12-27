@@ -15,12 +15,16 @@
 
 mod data;
 pub mod error;
-mod providers;
+/// Data generation providers.
+pub mod providers;
 mod rng;
 
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
+use pyo3::types::{PyDict, PyList, PyString, PyTuple};
+use pyo3::IntoPyObjectExt;
 use rng::ForgeryRng;
+use std::collections::BTreeMap;
 
 /// Maximum batch size to prevent memory exhaustion.
 ///
@@ -720,6 +724,52 @@ impl Faker {
     pub fn iban(&mut self) -> String {
         providers::finance::generate_iban(&mut self.rng)
     }
+
+    // === Records Generation ===
+
+    /// Generate records based on a schema.
+    ///
+    /// Returns a vector of BTreeMaps, where each BTreeMap represents a record
+    /// with field names as keys and generated values.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the batch size exceeds the maximum or the schema is invalid.
+    pub fn records(
+        &mut self,
+        n: usize,
+        schema: &BTreeMap<String, providers::records::FieldSpec>,
+    ) -> Result<Vec<BTreeMap<String, providers::records::Value>>, Box<dyn std::error::Error>> {
+        validate_batch_size(n)?;
+        Ok(providers::records::generate_records(
+            &mut self.rng,
+            n,
+            schema,
+        )?)
+    }
+
+    /// Generate records as tuples based on a schema.
+    ///
+    /// Returns a vector of vectors, where each inner vector contains values
+    /// in the same order as the provided field order.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the batch size exceeds the maximum or the schema is invalid.
+    pub fn records_tuples(
+        &mut self,
+        n: usize,
+        schema: &BTreeMap<String, providers::records::FieldSpec>,
+        field_order: &[String],
+    ) -> Result<Vec<Vec<providers::records::Value>>, Box<dyn std::error::Error>> {
+        validate_batch_size(n)?;
+        Ok(providers::records::generate_records_tuples(
+            &mut self.rng,
+            n,
+            schema,
+            field_order,
+        )?)
+    }
 }
 
 // Python API - these methods are exposed to Python via PyO3
@@ -1252,6 +1302,216 @@ impl Faker {
     #[pyo3(name = "iban")]
     fn py_iban(&mut self) -> String {
         self.iban()
+    }
+
+    // === Records Generation ===
+
+    /// Generate records based on a schema.
+    ///
+    /// The schema is a dictionary mapping field names to type specifications:
+    /// - Simple types: "name", "email", "uuid", "int", "float", etc.
+    /// - Integer range: ("int", min, max)
+    /// - Float range: ("float", min, max)
+    /// - Text with limits: ("text", min_chars, max_chars)
+    /// - Date range: ("date", start, end)
+    /// - Choice: ("choice", ["option1", "option2", ...])
+    #[pyo3(name = "records")]
+    fn py_records(&mut self, n: usize, schema: &Bound<'_, PyDict>) -> PyResult<Vec<Py<PyAny>>> {
+        let py = schema.py();
+        let rust_schema = parse_py_schema(schema)?;
+        validate_batch_size(n).map_err(|e| PyValueError::new_err(e.to_string()))?;
+
+        let records = providers::records::generate_records(&mut self.rng, n, &rust_schema)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+
+        records
+            .into_iter()
+            .map(|record| {
+                let dict = PyDict::new(py);
+                for (key, value) in record {
+                    dict.set_item(key, value_to_pyobject(py, value)?)?;
+                }
+                dict.into_py_any(py)
+            })
+            .collect()
+    }
+
+    /// Generate records as tuples based on a schema.
+    ///
+    /// Returns a list of tuples with values in alphabetical order of the schema keys.
+    /// This is faster than records() since it avoids creating dictionaries.
+    #[pyo3(name = "records_tuples")]
+    fn py_records_tuples(
+        &mut self,
+        n: usize,
+        schema: &Bound<'_, PyDict>,
+    ) -> PyResult<Vec<Py<PyAny>>> {
+        let py = schema.py();
+        let rust_schema = parse_py_schema(schema)?;
+        validate_batch_size(n).map_err(|e| PyValueError::new_err(e.to_string()))?;
+
+        // Get field order from BTreeMap (sorted alphabetically)
+        let field_order: Vec<String> = rust_schema.keys().cloned().collect();
+
+        let records = providers::records::generate_records_tuples(
+            &mut self.rng,
+            n,
+            &rust_schema,
+            &field_order,
+        )
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+
+        records
+            .into_iter()
+            .map(|record| {
+                let values: Vec<Py<PyAny>> = record
+                    .into_iter()
+                    .map(|v| value_to_pyobject(py, v))
+                    .collect::<PyResult<_>>()?;
+                PyTuple::new(py, values)?.into_py_any(py)
+            })
+            .collect()
+    }
+}
+
+/// Parse a Python schema dictionary into a Rust BTreeMap.
+fn parse_py_schema(
+    schema: &Bound<'_, PyDict>,
+) -> PyResult<BTreeMap<String, providers::records::FieldSpec>> {
+    let mut rust_schema = BTreeMap::new();
+
+    for (key, value) in schema.iter() {
+        let field_name: String = key.extract()?;
+        let field_spec = parse_field_spec(&value)?;
+        rust_schema.insert(field_name, field_spec);
+    }
+
+    Ok(rust_schema)
+}
+
+/// Parse a Python field specification into a Rust FieldSpec.
+fn parse_field_spec(value: &Bound<'_, PyAny>) -> PyResult<providers::records::FieldSpec> {
+    if value.is_instance_of::<PyString>() {
+        return parse_string_field_spec(value);
+    }
+    if value.is_instance_of::<PyTuple>() {
+        return parse_tuple_field_spec(value);
+    }
+    Err(PyValueError::new_err(
+        "Field specification must be a string or tuple",
+    ))
+}
+
+/// Parse a simple string type specification.
+fn parse_string_field_spec(value: &Bound<'_, PyAny>) -> PyResult<providers::records::FieldSpec> {
+    let type_str: String = value.extract()?;
+    providers::records::parse_simple_type(&type_str)
+        .map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
+/// Parse a tuple type specification like ("int", min, max).
+fn parse_tuple_field_spec(value: &Bound<'_, PyAny>) -> PyResult<providers::records::FieldSpec> {
+    let tuple: Vec<Bound<'_, PyAny>> = value.extract()?;
+    if tuple.len() < 2 {
+        return Err(PyValueError::new_err(
+            "Tuple specification must have at least 2 elements",
+        ));
+    }
+
+    let type_name: String = tuple[0].extract()?;
+    match type_name.as_str() {
+        "int" => parse_int_range(&tuple),
+        "float" => parse_float_range(&tuple),
+        "text" => parse_text_spec(&tuple),
+        "date" => parse_date_range(&tuple),
+        "choice" => parse_choice_spec(&tuple),
+        _ => Err(PyValueError::new_err(format!(
+            "Unknown parameterized type: {}",
+            type_name
+        ))),
+    }
+}
+
+/// Parse an integer range specification: ("int", min, max).
+fn parse_int_range(tuple: &[Bound<'_, PyAny>]) -> PyResult<providers::records::FieldSpec> {
+    if tuple.len() != 3 {
+        return Err(PyValueError::new_err(
+            "int specification must be (\"int\", min, max)",
+        ));
+    }
+    let min: i64 = tuple[1].extract()?;
+    let max: i64 = tuple[2].extract()?;
+    Ok(providers::records::FieldSpec::IntRange { min, max })
+}
+
+/// Parse a float range specification: ("float", min, max).
+fn parse_float_range(tuple: &[Bound<'_, PyAny>]) -> PyResult<providers::records::FieldSpec> {
+    if tuple.len() != 3 {
+        return Err(PyValueError::new_err(
+            "float specification must be (\"float\", min, max)",
+        ));
+    }
+    let min: f64 = tuple[1].extract()?;
+    let max: f64 = tuple[2].extract()?;
+    Ok(providers::records::FieldSpec::FloatRange { min, max })
+}
+
+/// Parse a text specification: ("text", min_chars, max_chars).
+fn parse_text_spec(tuple: &[Bound<'_, PyAny>]) -> PyResult<providers::records::FieldSpec> {
+    if tuple.len() != 3 {
+        return Err(PyValueError::new_err(
+            "text specification must be (\"text\", min_chars, max_chars)",
+        ));
+    }
+    let min_chars: usize = tuple[1].extract()?;
+    let max_chars: usize = tuple[2].extract()?;
+    if min_chars > max_chars {
+        return Err(PyValueError::new_err(format!(
+            "Invalid text range: min_chars ({}) > max_chars ({})",
+            min_chars, max_chars
+        )));
+    }
+    Ok(providers::records::FieldSpec::Text {
+        min_chars,
+        max_chars,
+    })
+}
+
+/// Parse a date range specification: ("date", start, end).
+fn parse_date_range(tuple: &[Bound<'_, PyAny>]) -> PyResult<providers::records::FieldSpec> {
+    if tuple.len() != 3 {
+        return Err(PyValueError::new_err(
+            "date specification must be (\"date\", start, end)",
+        ));
+    }
+    let start: String = tuple[1].extract()?;
+    let end: String = tuple[2].extract()?;
+    Ok(providers::records::FieldSpec::DateRange { start, end })
+}
+
+/// Parse a choice specification: ("choice", [options]).
+fn parse_choice_spec(tuple: &[Bound<'_, PyAny>]) -> PyResult<providers::records::FieldSpec> {
+    if tuple.len() != 2 {
+        return Err(PyValueError::new_err(
+            "choice specification must be (\"choice\", [options])",
+        ));
+    }
+    if !tuple[1].is_instance_of::<PyList>() {
+        return Err(PyValueError::new_err("choice options must be a list"));
+    }
+    let options: Vec<String> = tuple[1].extract()?;
+    Ok(providers::records::FieldSpec::Choice(options))
+}
+
+/// Convert a Rust Value to a Python object.
+fn value_to_pyobject(py: Python<'_>, value: providers::records::Value) -> PyResult<Py<PyAny>> {
+    match value {
+        providers::records::Value::String(s) => Ok(s.into_pyobject(py)?.into_any().unbind()),
+        providers::records::Value::Int(i) => Ok(i.into_pyobject(py)?.into_any().unbind()),
+        providers::records::Value::Float(f) => Ok(f.into_pyobject(py)?.into_any().unbind()),
+        providers::records::Value::Tuple3U8(r, g, b) => {
+            Ok(PyTuple::new(py, [r, g, b])?.into_any().unbind())
+        }
     }
 }
 

@@ -73,6 +73,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `hex_color()` / `hex_colors(n)`: Hex color codes (#RRGGBB)
 - `rgb_color()` / `rgb_colors(n)`: RGB tuples (r, g, b)
 
+#### Structured Data Generation
+- `records(n, schema)`: Generate structured records as list of dictionaries
+- `records_tuples(n, schema)`: Generate structured records as list of tuples (faster)
+- Schema DSL supports all simple types plus:
+  - Integer ranges: `("int", min, max)`
+  - Float ranges: `("float", min, max)`
+  - Text with limits: `("text", min_chars, max_chars)`
+  - Date ranges: `("date", start, end)`
+  - Choice: `("choice", [options])`
+
 #### Infrastructure
 - Module-level convenience functions using a default `fake` instance
 - Full type stub support (PEP 561)
