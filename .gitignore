@@ -50,6 +50,7 @@ ENV/
 # Testing
 .coverage
 .pytest_cache/
+proptest-regressions/
 htmlcov/
 .tox/
 .nox/
