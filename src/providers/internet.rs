@@ -2,7 +2,9 @@
 //!
 //! Generates email addresses, URLs, IP addresses, etc.
 
-use crate::data::en_us::{FIRST_NAMES, FREE_EMAIL_DOMAINS, SAFE_EMAIL_DOMAINS};
+use crate::data::en_us::{FREE_EMAIL_DOMAINS, SAFE_EMAIL_DOMAINS};
+use crate::data::get_locale_data;
+use crate::locale::Locale;
 use crate::rng::ForgeryRng;
 
 /// Common email domains for generation.
@@ -18,43 +20,40 @@ const EMAIL_DOMAINS: &[&str] = &[
 ];
 
 /// Generate a batch of email addresses.
-///
-/// Emails are generated in the format: firstname123@domain.com
-///
-/// # Arguments
-///
-/// * `rng` - The random number generator to use
-/// * `n` - Number of emails to generate
-pub fn generate_emails(rng: &mut ForgeryRng, n: usize) -> Vec<String> {
+pub fn generate_emails(rng: &mut ForgeryRng, locale: Locale, n: usize) -> Vec<String> {
     let mut emails = Vec::with_capacity(n);
     for _ in 0..n {
-        let name = rng.choose(FIRST_NAMES).to_lowercase();
-        let num: u16 = rng.gen_range(1, 999);
-        let domain = rng.choose(EMAIL_DOMAINS);
-        emails.push(format!("{}{:03}@{}", name, num, domain));
+        emails.push(generate_email(rng, locale));
     }
     emails
 }
 
 /// Generate a single email address.
 ///
-/// More efficient than `generate_emails(rng, 1)` as it avoids Vec allocation.
+/// Uses romanized first names for non-Latin locales.
 #[inline]
-pub fn generate_email(rng: &mut ForgeryRng) -> String {
-    let name = rng.choose(FIRST_NAMES).to_lowercase();
+pub fn generate_email(rng: &mut ForgeryRng, locale: Locale) -> String {
+    let data = get_locale_data(locale);
+    // Use romanized names for email (important for non-Latin scripts like Japanese)
+    let names = data.romanized_first_names().unwrap_or(&[]);
+    let name = if names.is_empty() {
+        "user"
+    } else {
+        rng.choose(names)
+    };
     let num: u16 = rng.gen_range(1, 999);
     let domain = rng.choose(EMAIL_DOMAINS);
-    format!("{}{:03}@{}", name, num, domain)
+    format!("{}{:03}@{}", name.to_lowercase(), num, domain)
 }
 
 /// Generate a batch of safe email addresses.
 ///
 /// Safe emails use example.com/org/net domains that are reserved for testing
 /// and documentation (RFC 2606).
-pub fn generate_safe_emails(rng: &mut ForgeryRng, n: usize) -> Vec<String> {
+pub fn generate_safe_emails(rng: &mut ForgeryRng, locale: Locale, n: usize) -> Vec<String> {
     let mut emails = Vec::with_capacity(n);
     for _ in 0..n {
-        emails.push(generate_safe_email(rng));
+        emails.push(generate_safe_email(rng, locale));
     }
     emails
 }
@@ -63,20 +62,26 @@ pub fn generate_safe_emails(rng: &mut ForgeryRng, n: usize) -> Vec<String> {
 ///
 /// Uses example.com, example.org, or example.net (RFC 2606 reserved domains).
 #[inline]
-pub fn generate_safe_email(rng: &mut ForgeryRng) -> String {
-    let name = rng.choose(FIRST_NAMES).to_lowercase();
+pub fn generate_safe_email(rng: &mut ForgeryRng, locale: Locale) -> String {
+    let data = get_locale_data(locale);
+    let names = data.romanized_first_names().unwrap_or(&[]);
+    let name = if names.is_empty() {
+        "user"
+    } else {
+        rng.choose(names)
+    };
     let num: u16 = rng.gen_range(1, 999);
     let domain = rng.choose(SAFE_EMAIL_DOMAINS);
-    format!("{}{:03}@{}", name, num, domain)
+    format!("{}{:03}@{}", name.to_lowercase(), num, domain)
 }
 
 /// Generate a batch of free email addresses.
 ///
 /// Free emails use common free email provider domains (gmail.com, yahoo.com, etc.).
-pub fn generate_free_emails(rng: &mut ForgeryRng, n: usize) -> Vec<String> {
+pub fn generate_free_emails(rng: &mut ForgeryRng, locale: Locale, n: usize) -> Vec<String> {
     let mut emails = Vec::with_capacity(n);
     for _ in 0..n {
-        emails.push(generate_free_email(rng));
+        emails.push(generate_free_email(rng, locale));
     }
     emails
 }
@@ -85,11 +90,17 @@ pub fn generate_free_emails(rng: &mut ForgeryRng, n: usize) -> Vec<String> {
 ///
 /// Uses common free email providers like gmail.com, yahoo.com, etc.
 #[inline]
-pub fn generate_free_email(rng: &mut ForgeryRng) -> String {
-    let name = rng.choose(FIRST_NAMES).to_lowercase();
+pub fn generate_free_email(rng: &mut ForgeryRng, locale: Locale) -> String {
+    let data = get_locale_data(locale);
+    let names = data.romanized_first_names().unwrap_or(&[]);
+    let name = if names.is_empty() {
+        "user"
+    } else {
+        rng.choose(names)
+    };
     let num: u16 = rng.gen_range(1, 999);
     let domain = rng.choose(FREE_EMAIL_DOMAINS);
-    format!("{}{:03}@{}", name, num, domain)
+    format!("{}{:03}@{}", name.to_lowercase(), num, domain)
 }
 
 #[cfg(test)]
@@ -101,7 +112,7 @@ mod tests {
         let mut rng = ForgeryRng::new();
         rng.seed(42);
 
-        let emails = generate_emails(&mut rng, 100);
+        let emails = generate_emails(&mut rng, Locale::EnUS, 100);
         assert_eq!(emails.len(), 100);
     }
 
@@ -110,7 +121,7 @@ mod tests {
         let mut rng = ForgeryRng::new();
         rng.seed(42);
 
-        let emails = generate_emails(&mut rng, 50);
+        let emails = generate_emails(&mut rng, Locale::EnUS, 50);
         for email in &emails {
             // Basic email validation
             assert!(email.contains('@'));
@@ -132,10 +143,9 @@ mod tests {
         let mut rng = ForgeryRng::new();
         rng.seed(42);
 
-        let emails = generate_emails(&mut rng, 100);
+        let emails = generate_emails(&mut rng, Locale::EnUS, 100);
         for email in &emails {
             let local_part = email.split('@').next().unwrap();
-            // The name part should be lowercase (numbers don't have case)
             let name_part: String = local_part.chars().filter(|c| c.is_alphabetic()).collect();
             assert_eq!(name_part, name_part.to_lowercase());
         }
@@ -149,17 +159,16 @@ mod tests {
         rng1.seed(12345);
         rng2.seed(12345);
 
-        let emails1 = generate_emails(&mut rng1, 100);
-        let emails2 = generate_emails(&mut rng2, 100);
+        let emails1 = generate_emails(&mut rng1, Locale::EnUS, 100);
+        let emails2 = generate_emails(&mut rng2, Locale::EnUS, 100);
 
         assert_eq!(emails1, emails2);
     }
 
-    // Edge case tests
     #[test]
     fn test_empty_batch() {
         let mut rng = ForgeryRng::new();
-        let emails = generate_emails(&mut rng, 0);
+        let emails = generate_emails(&mut rng, Locale::EnUS, 0);
         assert!(emails.is_empty());
     }
 
@@ -168,21 +177,19 @@ mod tests {
         let mut rng = ForgeryRng::new();
         rng.seed(42);
 
-        let emails = generate_emails(&mut rng, 1);
+        let emails = generate_emails(&mut rng, Locale::EnUS, 1);
         assert_eq!(emails.len(), 1);
         assert!(emails[0].contains('@'));
     }
 
     #[test]
     fn test_email_number_format() {
-        // Verify that emails have a 3-digit number
         let mut rng = ForgeryRng::new();
         rng.seed(42);
 
-        let emails = generate_emails(&mut rng, 100);
+        let emails = generate_emails(&mut rng, Locale::EnUS, 100);
         for email in &emails {
             let local = email.split('@').next().unwrap();
-            // Extract digits
             let digits: String = local.chars().filter(|c| c.is_ascii_digit()).collect();
             assert_eq!(
                 digits.len(),
@@ -195,17 +202,15 @@ mod tests {
 
     #[test]
     fn test_all_domains_used() {
-        // With enough samples, we should see multiple domains used
         let mut rng = ForgeryRng::new();
         rng.seed(42);
 
-        let emails = generate_emails(&mut rng, 1000);
+        let emails = generate_emails(&mut rng, Locale::EnUS, 1000);
         let domains: std::collections::HashSet<_> = emails
             .iter()
             .map(|e| e.split('@').nth(1).unwrap())
             .collect();
 
-        // Should see at least 2 different domains with 1000 samples
         assert!(domains.len() >= 2, "Should use multiple domains");
     }
 
@@ -217,8 +222,8 @@ mod tests {
         rng1.seed(1);
         rng2.seed(2);
 
-        let emails1 = generate_emails(&mut rng1, 100);
-        let emails2 = generate_emails(&mut rng2, 100);
+        let emails1 = generate_emails(&mut rng1, Locale::EnUS, 100);
+        let emails2 = generate_emails(&mut rng2, Locale::EnUS, 100);
 
         assert_ne!(
             emails1, emails2,
@@ -231,26 +236,23 @@ mod tests {
         let mut rng = ForgeryRng::new();
         rng.seed(42);
 
-        let emails = generate_emails(&mut rng, 10000);
+        let emails = generate_emails(&mut rng, Locale::EnUS, 10000);
         assert_eq!(emails.len(), 10000);
 
-        // Verify first and last are valid
         assert!(emails[0].contains('@'));
         assert!(emails[9999].contains('@'));
     }
 
     #[test]
     fn test_email_local_part_structure() {
-        // Email format is: name + 3-digit number + @ + domain
         let mut rng = ForgeryRng::new();
         rng.seed(42);
 
-        let emails = generate_emails(&mut rng, 100);
+        let emails = generate_emails(&mut rng, Locale::EnUS, 100);
         for email in &emails {
             let parts: Vec<&str> = email.split('@').collect();
             let local = parts[0];
 
-            // Local should have letters followed by digits
             let has_letters = local.chars().any(|c| c.is_alphabetic());
             let has_digits = local.chars().any(|c| c.is_ascii_digit());
 
@@ -259,13 +261,12 @@ mod tests {
         }
     }
 
-    // Safe email tests
     #[test]
     fn test_generate_safe_emails_count() {
         let mut rng = ForgeryRng::new();
         rng.seed(42);
 
-        let emails = generate_safe_emails(&mut rng, 100);
+        let emails = generate_safe_emails(&mut rng, Locale::EnUS, 100);
         assert_eq!(emails.len(), 100);
     }
 
@@ -274,7 +275,7 @@ mod tests {
         let mut rng = ForgeryRng::new();
         rng.seed(42);
 
-        let emails = generate_safe_emails(&mut rng, 100);
+        let emails = generate_safe_emails(&mut rng, Locale::EnUS, 100);
         for email in &emails {
             let domain = email.split('@').nth(1).unwrap();
             assert!(
@@ -290,18 +291,17 @@ mod tests {
         let mut rng = ForgeryRng::new();
         rng.seed(42);
 
-        let email = generate_safe_email(&mut rng);
+        let email = generate_safe_email(&mut rng, Locale::EnUS);
         let domain = email.split('@').nth(1).unwrap();
         assert!(SAFE_EMAIL_DOMAINS.contains(&domain));
     }
 
-    // Free email tests
     #[test]
     fn test_generate_free_emails_count() {
         let mut rng = ForgeryRng::new();
         rng.seed(42);
 
-        let emails = generate_free_emails(&mut rng, 100);
+        let emails = generate_free_emails(&mut rng, Locale::EnUS, 100);
         assert_eq!(emails.len(), 100);
     }
 
@@ -310,7 +310,7 @@ mod tests {
         let mut rng = ForgeryRng::new();
         rng.seed(42);
 
-        let emails = generate_free_emails(&mut rng, 100);
+        let emails = generate_free_emails(&mut rng, Locale::EnUS, 100);
         for email in &emails {
             let domain = email.split('@').nth(1).unwrap();
             assert!(
@@ -326,7 +326,7 @@ mod tests {
         let mut rng = ForgeryRng::new();
         rng.seed(42);
 
-        let email = generate_free_email(&mut rng);
+        let email = generate_free_email(&mut rng, Locale::EnUS);
         let domain = email.split('@').nth(1).unwrap();
         assert!(FREE_EMAIL_DOMAINS.contains(&domain));
     }
@@ -339,8 +339,8 @@ mod tests {
         rng1.seed(12345);
         rng2.seed(12345);
 
-        let e1 = generate_safe_emails(&mut rng1, 50);
-        let e2 = generate_safe_emails(&mut rng2, 50);
+        let e1 = generate_safe_emails(&mut rng1, Locale::EnUS, 50);
+        let e2 = generate_safe_emails(&mut rng2, Locale::EnUS, 50);
 
         assert_eq!(e1, e2);
     }
@@ -353,8 +353,8 @@ mod tests {
         rng1.seed(12345);
         rng2.seed(12345);
 
-        let e1 = generate_free_emails(&mut rng1, 50);
-        let e2 = generate_free_emails(&mut rng2, 50);
+        let e1 = generate_free_emails(&mut rng1, Locale::EnUS, 50);
+        let e2 = generate_free_emails(&mut rng2, Locale::EnUS, 50);
 
         assert_eq!(e1, e2);
     }
@@ -362,13 +362,39 @@ mod tests {
     #[test]
     fn test_empty_safe_batch() {
         let mut rng = ForgeryRng::new();
-        assert!(generate_safe_emails(&mut rng, 0).is_empty());
+        assert!(generate_safe_emails(&mut rng, Locale::EnUS, 0).is_empty());
     }
 
     #[test]
     fn test_empty_free_batch() {
         let mut rng = ForgeryRng::new();
-        assert!(generate_free_emails(&mut rng, 0).is_empty());
+        assert!(generate_free_emails(&mut rng, Locale::EnUS, 0).is_empty());
+    }
+
+    #[test]
+    fn test_all_locales_generate_email() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        for locale in [
+            Locale::EnUS,
+            Locale::EnGB,
+            Locale::DeDE,
+            Locale::FrFR,
+            Locale::EsES,
+            Locale::ItIT,
+            Locale::JaJP,
+        ] {
+            let email = generate_email(&mut rng, locale);
+            assert!(email.contains('@'), "Email should have @ for {:?}", locale);
+            // Verify email is ASCII (important for ja_JP)
+            assert!(
+                email.is_ascii(),
+                "Email should be ASCII for {:?}: {}",
+                locale,
+                email
+            );
+        }
     }
 }
 
@@ -378,42 +404,38 @@ mod proptest_tests {
     use proptest::prelude::*;
 
     proptest! {
-        /// Property: batch size is always respected
         #[test]
         fn prop_batch_size_respected(n in 0usize..1000) {
             let mut rng = ForgeryRng::new();
             rng.seed(42);
 
-            let emails = generate_emails(&mut rng, n);
+            let emails = generate_emails(&mut rng, Locale::EnUS, n);
             prop_assert_eq!(emails.len(), n);
         }
 
-        /// Property: all emails contain exactly one @
         #[test]
         fn prop_email_has_one_at(n in 1usize..100) {
             let mut rng = ForgeryRng::new();
             rng.seed(42);
 
-            let emails = generate_emails(&mut rng, n);
+            let emails = generate_emails(&mut rng, Locale::EnUS, n);
             for email in emails {
                 prop_assert_eq!(email.matches('@').count(), 1);
             }
         }
 
-        /// Property: all emails have valid domains
         #[test]
         fn prop_valid_domains(n in 1usize..100) {
             let mut rng = ForgeryRng::new();
             rng.seed(42);
 
-            let emails = generate_emails(&mut rng, n);
+            let emails = generate_emails(&mut rng, Locale::EnUS, n);
             for email in emails {
                 let domain = email.split('@').nth(1).unwrap();
                 prop_assert!(EMAIL_DOMAINS.contains(&domain));
             }
         }
 
-        /// Property: same seed produces same output
         #[test]
         fn prop_seed_determinism(seed_val in any::<u64>(), n in 1usize..100) {
             let mut rng1 = ForgeryRng::new();
@@ -422,31 +444,29 @@ mod proptest_tests {
             rng1.seed(seed_val);
             rng2.seed(seed_val);
 
-            let emails1 = generate_emails(&mut rng1, n);
-            let emails2 = generate_emails(&mut rng2, n);
+            let emails1 = generate_emails(&mut rng1, Locale::EnUS, n);
+            let emails2 = generate_emails(&mut rng2, Locale::EnUS, n);
 
             prop_assert_eq!(emails1, emails2);
         }
 
-        /// Property: all emails are lowercase
         #[test]
         fn prop_lowercase_emails(n in 1usize..100) {
             let mut rng = ForgeryRng::new();
             rng.seed(42);
 
-            let emails = generate_emails(&mut rng, n);
+            let emails = generate_emails(&mut rng, Locale::EnUS, n);
             for email in &emails {
                 prop_assert_eq!(email, &email.to_lowercase());
             }
         }
 
-        /// Property: local part has expected format (letters + 3 digits)
         #[test]
         fn prop_local_part_format(n in 1usize..100) {
             let mut rng = ForgeryRng::new();
             rng.seed(42);
 
-            let emails = generate_emails(&mut rng, n);
+            let emails = generate_emails(&mut rng, Locale::EnUS, n);
             for email in emails {
                 let local = email.split('@').next().unwrap();
                 let digits: String = local.chars().filter(|c| c.is_ascii_digit()).collect();
@@ -454,46 +474,42 @@ mod proptest_tests {
             }
         }
 
-        /// Property: safe email batch size is respected
         #[test]
         fn prop_safe_email_batch_size(n in 0usize..500) {
             let mut rng = ForgeryRng::new();
             rng.seed(42);
 
-            let emails = generate_safe_emails(&mut rng, n);
+            let emails = generate_safe_emails(&mut rng, Locale::EnUS, n);
             prop_assert_eq!(emails.len(), n);
         }
 
-        /// Property: safe emails use valid domains
         #[test]
         fn prop_safe_email_domains(n in 1usize..100) {
             let mut rng = ForgeryRng::new();
             rng.seed(42);
 
-            let emails = generate_safe_emails(&mut rng, n);
+            let emails = generate_safe_emails(&mut rng, Locale::EnUS, n);
             for email in emails {
                 let domain = email.split('@').nth(1).unwrap();
                 prop_assert!(SAFE_EMAIL_DOMAINS.contains(&domain));
             }
         }
 
-        /// Property: free email batch size is respected
         #[test]
         fn prop_free_email_batch_size(n in 0usize..500) {
             let mut rng = ForgeryRng::new();
             rng.seed(42);
 
-            let emails = generate_free_emails(&mut rng, n);
+            let emails = generate_free_emails(&mut rng, Locale::EnUS, n);
             prop_assert_eq!(emails.len(), n);
         }
 
-        /// Property: free emails use valid domains
         #[test]
         fn prop_free_email_domains(n in 1usize..100) {
             let mut rng = ForgeryRng::new();
             rng.seed(42);
 
-            let emails = generate_free_emails(&mut rng, n);
+            let emails = generate_free_emails(&mut rng, Locale::EnUS, n);
             for email in emails {
                 let domain = email.split('@').nth(1).unwrap();
                 prop_assert!(FREE_EMAIL_DOMAINS.contains(&domain));

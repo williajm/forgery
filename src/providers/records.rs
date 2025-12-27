@@ -5,6 +5,7 @@
 //! This module provides the `records()` and `records_tuples()` functions
 //! for generating structured data based on a schema DSL.
 
+use crate::locale::Locale;
 use crate::providers::{
     address, colors, company, datetime, finance, identifiers, internet, names, network, numbers,
     phone, text,
@@ -273,9 +274,13 @@ pub fn validate_schema(schema: &BTreeMap<String, FieldSpec>) -> Result<(), Schem
 }
 
 /// Generate a value based on a field specification.
-pub fn generate_value(rng: &mut ForgeryRng, spec: &FieldSpec) -> Result<Value, SchemaError> {
+pub fn generate_value(
+    rng: &mut ForgeryRng,
+    locale: Locale,
+    spec: &FieldSpec,
+) -> Result<Value, SchemaError> {
     match spec {
-        FieldSpec::Simple(type_name) => generate_simple_value(rng, type_name),
+        FieldSpec::Simple(type_name) => generate_simple_value(rng, locale, type_name),
         FieldSpec::IntRange { min, max } => {
             if min > max {
                 return Err(SchemaError {
@@ -302,7 +307,7 @@ pub fn generate_value(rng: &mut ForgeryRng, spec: &FieldSpec) -> Result<Value, S
             min_chars,
             max_chars,
         } => {
-            let val = text::generate_text(rng, *min_chars, *max_chars);
+            let val = text::generate_text(rng, locale, *min_chars, *max_chars);
             Ok(Value::String(val))
         }
         FieldSpec::DateRange { start, end } => {
@@ -321,13 +326,13 @@ pub fn generate_value(rng: &mut ForgeryRng, spec: &FieldSpec) -> Result<Value, S
             Ok(Value::String(val))
         }
         // Direct type variants
-        FieldSpec::Name => Ok(Value::String(names::generate_name(rng))),
-        FieldSpec::FirstName => Ok(Value::String(names::generate_first_name(rng))),
-        FieldSpec::LastName => Ok(Value::String(names::generate_last_name(rng))),
-        FieldSpec::Email => Ok(Value::String(internet::generate_email(rng))),
-        FieldSpec::SafeEmail => Ok(Value::String(internet::generate_safe_email(rng))),
-        FieldSpec::FreeEmail => Ok(Value::String(internet::generate_free_email(rng))),
-        FieldSpec::Phone => Ok(Value::String(phone::generate_phone_number(rng))),
+        FieldSpec::Name => Ok(Value::String(names::generate_name(rng, locale))),
+        FieldSpec::FirstName => Ok(Value::String(names::generate_first_name(rng, locale))),
+        FieldSpec::LastName => Ok(Value::String(names::generate_last_name(rng, locale))),
+        FieldSpec::Email => Ok(Value::String(internet::generate_email(rng, locale))),
+        FieldSpec::SafeEmail => Ok(Value::String(internet::generate_safe_email(rng, locale))),
+        FieldSpec::FreeEmail => Ok(Value::String(internet::generate_free_email(rng, locale))),
+        FieldSpec::Phone => Ok(Value::String(phone::generate_phone_number(rng, locale))),
         FieldSpec::Uuid => Ok(Value::String(identifiers::generate_uuid(rng))),
         FieldSpec::Int => Ok(Value::Int(numbers::generate_integer(rng, 0, 100).map_err(
             |e| SchemaError {
@@ -356,15 +361,17 @@ pub fn generate_value(rng: &mut ForgeryRng, spec: &FieldSpec) -> Result<Value, S
                 })?;
             Ok(Value::String(val))
         }
-        FieldSpec::StreetAddress => Ok(Value::String(address::generate_street_address(rng))),
-        FieldSpec::City => Ok(Value::String(address::generate_city(rng))),
-        FieldSpec::State => Ok(Value::String(address::generate_state(rng))),
+        FieldSpec::StreetAddress => {
+            Ok(Value::String(address::generate_street_address(rng, locale)))
+        }
+        FieldSpec::City => Ok(Value::String(address::generate_city(rng, locale))),
+        FieldSpec::State => Ok(Value::String(address::generate_state(rng, locale))),
         FieldSpec::Country => Ok(Value::String(address::generate_country(rng))),
-        FieldSpec::ZipCode => Ok(Value::String(address::generate_zip_code(rng))),
-        FieldSpec::Address => Ok(Value::String(address::generate_address(rng))),
-        FieldSpec::Company => Ok(Value::String(company::generate_company(rng))),
-        FieldSpec::Job => Ok(Value::String(company::generate_job(rng))),
-        FieldSpec::CatchPhrase => Ok(Value::String(company::generate_catch_phrase(rng))),
+        FieldSpec::ZipCode => Ok(Value::String(address::generate_zip_code(rng, locale))),
+        FieldSpec::Address => Ok(Value::String(address::generate_address(rng, locale))),
+        FieldSpec::Company => Ok(Value::String(company::generate_company(rng, locale))),
+        FieldSpec::Job => Ok(Value::String(company::generate_job(rng, locale))),
+        FieldSpec::CatchPhrase => Ok(Value::String(company::generate_catch_phrase(rng, locale))),
         FieldSpec::Url => Ok(Value::String(network::generate_url(rng))),
         FieldSpec::DomainName => Ok(Value::String(network::generate_domain_name(rng))),
         FieldSpec::Ipv4 => Ok(Value::String(network::generate_ipv4(rng))),
@@ -372,9 +379,9 @@ pub fn generate_value(rng: &mut ForgeryRng, spec: &FieldSpec) -> Result<Value, S
         FieldSpec::MacAddress => Ok(Value::String(network::generate_mac_address(rng))),
         FieldSpec::CreditCard => Ok(Value::String(finance::generate_credit_card(rng))),
         FieldSpec::Iban => Ok(Value::String(finance::generate_iban(rng))),
-        FieldSpec::Sentence => Ok(Value::String(text::generate_sentence(rng, 10))),
-        FieldSpec::Paragraph => Ok(Value::String(text::generate_paragraph(rng, 5))),
-        FieldSpec::Color => Ok(Value::String(colors::generate_color(rng))),
+        FieldSpec::Sentence => Ok(Value::String(text::generate_sentence(rng, locale, 10))),
+        FieldSpec::Paragraph => Ok(Value::String(text::generate_paragraph(rng, locale, 5))),
+        FieldSpec::Color => Ok(Value::String(colors::generate_color(rng, locale))),
         FieldSpec::HexColor => Ok(Value::String(colors::generate_hex_color(rng))),
         FieldSpec::RgbColor => {
             let (r, g, b) = colors::generate_rgb_color(rng);
@@ -386,17 +393,21 @@ pub fn generate_value(rng: &mut ForgeryRng, spec: &FieldSpec) -> Result<Value, S
 }
 
 /// Generate a value for a simple type.
-fn generate_simple_value(rng: &mut ForgeryRng, type_name: &str) -> Result<Value, SchemaError> {
+fn generate_simple_value(
+    rng: &mut ForgeryRng,
+    locale: Locale,
+    type_name: &str,
+) -> Result<Value, SchemaError> {
     match type_name {
         // Names
-        "name" => Ok(Value::String(names::generate_name(rng))),
-        "first_name" => Ok(Value::String(names::generate_first_name(rng))),
-        "last_name" => Ok(Value::String(names::generate_last_name(rng))),
+        "name" => Ok(Value::String(names::generate_name(rng, locale))),
+        "first_name" => Ok(Value::String(names::generate_first_name(rng, locale))),
+        "last_name" => Ok(Value::String(names::generate_last_name(rng, locale))),
 
         // Internet
-        "email" => Ok(Value::String(internet::generate_email(rng))),
-        "safe_email" => Ok(Value::String(internet::generate_safe_email(rng))),
-        "free_email" => Ok(Value::String(internet::generate_free_email(rng))),
+        "email" => Ok(Value::String(internet::generate_email(rng, locale))),
+        "safe_email" => Ok(Value::String(internet::generate_safe_email(rng, locale))),
+        "free_email" => Ok(Value::String(internet::generate_free_email(rng, locale))),
 
         // Identifiers
         "uuid" => Ok(Value::String(identifiers::generate_uuid(rng))),
@@ -416,20 +427,20 @@ fn generate_simple_value(rng: &mut ForgeryRng, type_name: &str) -> Result<Value,
         )),
 
         // Phone
-        "phone" => Ok(Value::String(phone::generate_phone_number(rng))),
+        "phone" => Ok(Value::String(phone::generate_phone_number(rng, locale))),
 
         // Address
-        "address" => Ok(Value::String(address::generate_address(rng))),
-        "street_address" => Ok(Value::String(address::generate_street_address(rng))),
-        "city" => Ok(Value::String(address::generate_city(rng))),
-        "state" => Ok(Value::String(address::generate_state(rng))),
+        "address" => Ok(Value::String(address::generate_address(rng, locale))),
+        "street_address" => Ok(Value::String(address::generate_street_address(rng, locale))),
+        "city" => Ok(Value::String(address::generate_city(rng, locale))),
+        "state" => Ok(Value::String(address::generate_state(rng, locale))),
         "country" => Ok(Value::String(address::generate_country(rng))),
-        "zip_code" => Ok(Value::String(address::generate_zip_code(rng))),
+        "zip_code" => Ok(Value::String(address::generate_zip_code(rng, locale))),
 
         // Company
-        "company" => Ok(Value::String(company::generate_company(rng))),
-        "job" => Ok(Value::String(company::generate_job(rng))),
-        "catch_phrase" => Ok(Value::String(company::generate_catch_phrase(rng))),
+        "company" => Ok(Value::String(company::generate_company(rng, locale))),
+        "job" => Ok(Value::String(company::generate_job(rng, locale))),
+        "catch_phrase" => Ok(Value::String(company::generate_catch_phrase(rng, locale))),
 
         // Network
         "url" => Ok(Value::String(network::generate_url(rng))),
@@ -439,7 +450,7 @@ fn generate_simple_value(rng: &mut ForgeryRng, type_name: &str) -> Result<Value,
         "mac_address" => Ok(Value::String(network::generate_mac_address(rng))),
 
         // Colors
-        "color" => Ok(Value::String(colors::generate_color(rng))),
+        "color" => Ok(Value::String(colors::generate_color(rng, locale))),
         "hex_color" => Ok(Value::String(colors::generate_hex_color(rng))),
         "rgb_color" => {
             let (r, g, b) = colors::generate_rgb_color(rng);
@@ -470,9 +481,9 @@ fn generate_simple_value(rng: &mut ForgeryRng, type_name: &str) -> Result<Value,
         }
 
         // Text (defaults)
-        "sentence" => Ok(Value::String(text::generate_sentence(rng, 10))),
-        "paragraph" => Ok(Value::String(text::generate_paragraph(rng, 5))),
-        "text" => Ok(Value::String(text::generate_text(rng, 50, 200))),
+        "sentence" => Ok(Value::String(text::generate_sentence(rng, locale, 10))),
+        "paragraph" => Ok(Value::String(text::generate_paragraph(rng, locale, 5))),
+        "text" => Ok(Value::String(text::generate_text(rng, locale, 50, 200))),
 
         _ => Err(SchemaError {
             message: format!("Unknown type: {}", type_name),
@@ -491,6 +502,7 @@ fn generate_simple_value(rng: &mut ForgeryRng, type_name: &str) -> Result<Value,
 /// which guarantees that the same seed produces the same output across runs.
 pub fn generate_records(
     rng: &mut ForgeryRng,
+    locale: Locale,
     n: usize,
     schema: &BTreeMap<String, FieldSpec>,
 ) -> Result<Vec<BTreeMap<String, Value>>, SchemaError> {
@@ -502,7 +514,7 @@ pub fn generate_records(
     for _ in 0..n {
         let mut record = BTreeMap::new();
         for (field_name, spec) in schema {
-            let value = generate_value(rng, spec)?;
+            let value = generate_value(rng, locale, spec)?;
             record.insert(field_name.clone(), value);
         }
         records.push(record);
@@ -517,6 +529,7 @@ pub fn generate_records(
 /// in the same order as the provided field order.
 pub fn generate_records_tuples(
     rng: &mut ForgeryRng,
+    locale: Locale,
     n: usize,
     schema: &BTreeMap<String, FieldSpec>,
     field_order: &[String],
@@ -563,7 +576,7 @@ pub fn generate_records_tuples(
             let spec = schema
                 .get(field_name)
                 .expect("field_name was validated to exist in schema");
-            let value = generate_value(rng, spec)?;
+            let value = generate_value(rng, locale, spec)?;
             record.push(value);
         }
         records.push(record);
@@ -575,6 +588,7 @@ pub fn generate_records_tuples(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::locale::Locale;
 
     fn create_test_schema() -> BTreeMap<String, FieldSpec> {
         let mut schema = BTreeMap::new();
@@ -601,7 +615,7 @@ mod tests {
         rng.seed(42);
 
         let schema = create_test_schema();
-        let records = generate_records(&mut rng, 100, &schema).unwrap();
+        let records = generate_records(&mut rng, Locale::EnUS, 100, &schema).unwrap();
 
         assert_eq!(records.len(), 100);
     }
@@ -612,7 +626,7 @@ mod tests {
         rng.seed(42);
 
         let schema = create_test_schema();
-        let records = generate_records(&mut rng, 10, &schema).unwrap();
+        let records = generate_records(&mut rng, Locale::EnUS, 10, &schema).unwrap();
 
         for record in &records {
             assert!(record.contains_key("id"));
@@ -629,7 +643,7 @@ mod tests {
         rng.seed(42);
 
         let schema = create_test_schema();
-        let records = generate_records(&mut rng, 10, &schema).unwrap();
+        let records = generate_records(&mut rng, Locale::EnUS, 10, &schema).unwrap();
 
         for record in &records {
             // UUID should be a string with dashes
@@ -676,7 +690,8 @@ mod tests {
             "status".to_string(),
         ];
 
-        let records = generate_records_tuples(&mut rng, 10, &schema, &field_order).unwrap();
+        let records =
+            generate_records_tuples(&mut rng, Locale::EnUS, 10, &schema, &field_order).unwrap();
 
         assert_eq!(records.len(), 10);
         for record in &records {
@@ -693,8 +708,8 @@ mod tests {
         rng2.seed(12345);
 
         let schema = create_test_schema();
-        let r1 = generate_records(&mut rng1, 50, &schema).unwrap();
-        let r2 = generate_records(&mut rng2, 50, &schema).unwrap();
+        let r1 = generate_records(&mut rng1, Locale::EnUS, 50, &schema).unwrap();
+        let r2 = generate_records(&mut rng2, Locale::EnUS, 50, &schema).unwrap();
 
         assert_eq!(r1, r2);
     }
@@ -704,7 +719,7 @@ mod tests {
         let mut rng = ForgeryRng::new();
 
         let schema = create_test_schema();
-        let records = generate_records(&mut rng, 0, &schema).unwrap();
+        let records = generate_records(&mut rng, Locale::EnUS, 0, &schema).unwrap();
 
         assert!(records.is_empty());
     }
@@ -752,7 +767,7 @@ mod tests {
 
         for type_name in types {
             let spec = parse_simple_type(type_name).unwrap();
-            let result = generate_value(&mut rng, &spec);
+            let result = generate_value(&mut rng, Locale::EnUS, &spec);
             assert!(
                 result.is_ok(),
                 "Failed to generate {}: {:?}",
@@ -768,7 +783,7 @@ mod tests {
         rng.seed(42);
 
         let spec = parse_simple_type("rgb_color").unwrap();
-        let result = generate_value(&mut rng, &spec).unwrap();
+        let result = generate_value(&mut rng, Locale::EnUS, &spec).unwrap();
 
         // Just verify we get a Tuple3U8 variant (u8 values are always 0-255)
         assert!(
@@ -788,7 +803,7 @@ mod tests {
         };
 
         for _ in 0..100 {
-            let result = generate_value(&mut rng, &spec).unwrap();
+            let result = generate_value(&mut rng, Locale::EnUS, &spec).unwrap();
             if let Value::String(text) = result {
                 assert!(text.len() >= 50 && text.len() <= 100);
             } else {
@@ -807,7 +822,7 @@ mod tests {
             end: "2020-12-31".to_string(),
         };
 
-        let result = generate_value(&mut rng, &spec).unwrap();
+        let result = generate_value(&mut rng, Locale::EnUS, &spec).unwrap();
         if let Value::String(date) = result {
             assert!(date.starts_with("2020-"));
         } else {
@@ -824,7 +839,7 @@ mod tests {
         let spec = FieldSpec::Choice(options.clone());
 
         for _ in 0..100 {
-            let result = generate_value(&mut rng, &spec).unwrap();
+            let result = generate_value(&mut rng, Locale::EnUS, &spec).unwrap();
             if let Value::String(val) = result {
                 assert!(options.contains(&val));
             } else {
@@ -844,7 +859,7 @@ mod tests {
         let mut rng = ForgeryRng::new();
 
         let spec = FieldSpec::IntRange { min: 100, max: 10 };
-        let result = generate_value(&mut rng, &spec);
+        let result = generate_value(&mut rng, Locale::EnUS, &spec);
         assert!(result.is_err());
     }
 
@@ -856,7 +871,7 @@ mod tests {
             min: 100.0,
             max: 10.0,
         };
-        let result = generate_value(&mut rng, &spec);
+        let result = generate_value(&mut rng, Locale::EnUS, &spec);
         assert!(result.is_err());
     }
 
@@ -865,7 +880,7 @@ mod tests {
         let mut rng = ForgeryRng::new();
 
         let spec = FieldSpec::Choice(vec![]);
-        let result = generate_value(&mut rng, &spec);
+        let result = generate_value(&mut rng, Locale::EnUS, &spec);
         assert!(result.is_err());
     }
 
@@ -876,7 +891,7 @@ mod tests {
         let schema = create_test_schema();
         let field_order = vec!["id".to_string(), "nonexistent".to_string()];
 
-        let result = generate_records_tuples(&mut rng, 10, &schema, &field_order);
+        let result = generate_records_tuples(&mut rng, Locale::EnUS, 10, &schema, &field_order);
         assert!(result.is_err());
     }
 
@@ -894,7 +909,7 @@ mod tests {
             "status".to_string(),
         ];
 
-        let result = generate_records_tuples(&mut rng, 10, &schema, &field_order);
+        let result = generate_records_tuples(&mut rng, Locale::EnUS, 10, &schema, &field_order);
         assert!(result.is_err());
         assert!(result
             .unwrap_err()
@@ -910,7 +925,7 @@ mod tests {
         // Only 3 fields, but schema has 5
         let field_order = vec!["id".to_string(), "name".to_string(), "age".to_string()];
 
-        let result = generate_records_tuples(&mut rng, 10, &schema, &field_order);
+        let result = generate_records_tuples(&mut rng, Locale::EnUS, 10, &schema, &field_order);
         assert!(result.is_err());
         assert!(result
             .unwrap_err()
@@ -926,7 +941,7 @@ mod tests {
         schema.insert("age".to_string(), FieldSpec::IntRange { min: 100, max: 10 }); // invalid
 
         // Even with n=0, schema should be validated
-        let result = generate_records(&mut rng, 0, &schema);
+        let result = generate_records(&mut rng, Locale::EnUS, 0, &schema);
         assert!(result.is_err());
         assert!(result.unwrap_err().message.contains("Invalid int range"));
     }
@@ -941,7 +956,7 @@ mod tests {
         let field_order = vec!["status".to_string()];
 
         // Even with n=0, schema should be validated
-        let result = generate_records_tuples(&mut rng, 0, &schema, &field_order);
+        let result = generate_records_tuples(&mut rng, Locale::EnUS, 0, &schema, &field_order);
         assert!(result.is_err());
         assert!(result.unwrap_err().message.contains("empty"));
     }
@@ -950,6 +965,7 @@ mod tests {
 #[cfg(test)]
 mod proptest_tests {
     use super::*;
+    use crate::locale::Locale;
     use proptest::prelude::*;
 
     proptest! {
@@ -962,7 +978,7 @@ mod proptest_tests {
             let mut schema = BTreeMap::new();
             schema.insert("id".to_string(), FieldSpec::Simple("uuid".to_string()));
 
-            let records = generate_records(&mut rng, n, &schema).unwrap();
+            let records = generate_records(&mut rng, Locale::EnUS, n, &schema).unwrap();
             prop_assert_eq!(records.len(), n);
         }
 
@@ -975,7 +991,7 @@ mod proptest_tests {
             let spec = FieldSpec::IntRange { min, max };
 
             for _ in 0..100 {
-                let result = generate_value(&mut rng, &spec).unwrap();
+                let result = generate_value(&mut rng, Locale::EnUS, &spec).unwrap();
                 if let Value::Int(val) = result {
                     prop_assert!(val >= min && val <= max);
                 } else {
@@ -993,7 +1009,7 @@ mod proptest_tests {
             let spec = FieldSpec::FloatRange { min, max };
 
             for _ in 0..100 {
-                let result = generate_value(&mut rng, &spec).unwrap();
+                let result = generate_value(&mut rng, Locale::EnUS, &spec).unwrap();
                 if let Value::Float(val) = result {
                     prop_assert!(val >= min && val <= max);
                 } else {
@@ -1015,8 +1031,8 @@ mod proptest_tests {
             schema.insert("id".to_string(), FieldSpec::Simple("uuid".to_string()));
             schema.insert("name".to_string(), FieldSpec::Simple("name".to_string()));
 
-            let r1 = generate_records(&mut rng1, n, &schema).unwrap();
-            let r2 = generate_records(&mut rng2, n, &schema).unwrap();
+            let r1 = generate_records(&mut rng1, Locale::EnUS, n, &schema).unwrap();
+            let r2 = generate_records(&mut rng2, Locale::EnUS, n, &schema).unwrap();
 
             prop_assert_eq!(r1, r2);
         }
