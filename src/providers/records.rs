@@ -465,7 +465,10 @@ pub fn generate_records_tuples(
     for _ in 0..n {
         let mut record = Vec::with_capacity(field_order.len());
         for field_name in field_order {
-            let spec = schema.get(field_name).unwrap();
+            // Field existence is validated at the start of this function
+            let spec = schema
+                .get(field_name)
+                .expect("field_name was validated to exist in schema");
             let value = generate_value(rng, spec)?;
             record.push(value);
         }

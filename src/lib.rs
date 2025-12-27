@@ -1465,6 +1465,12 @@ fn parse_text_spec(tuple: &[Bound<'_, PyAny>]) -> PyResult<providers::records::F
     }
     let min_chars: usize = tuple[1].extract()?;
     let max_chars: usize = tuple[2].extract()?;
+    if min_chars > max_chars {
+        return Err(PyValueError::new_err(format!(
+            "Invalid text range: min_chars ({}) > max_chars ({})",
+            min_chars, max_chars
+        )));
+    }
     Ok(providers::records::FieldSpec::Text {
         min_chars,
         max_chars,

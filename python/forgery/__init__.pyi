@@ -231,3 +231,56 @@ def credit_card() -> str: ...
 def credit_cards(n: int) -> list[str]: ...
 def iban() -> str: ...
 def ibans(n: int) -> list[str]: ...
+
+# Records generation
+FieldValue = str | int | float | tuple[int, int, int]
+SimpleType = str
+IntRangeSpec = tuple[str, int, int]
+FloatRangeSpec = tuple[str, float, float]
+TextSpec = tuple[str, int, int]
+DateRangeSpec = tuple[str, str, str]
+ChoiceSpec = tuple[str, list[str]]
+FieldSpec = SimpleType | IntRangeSpec | FloatRangeSpec | TextSpec | DateRangeSpec | ChoiceSpec
+Schema = dict[str, FieldSpec]
+
+def records(n: int, schema: Schema) -> list[dict[str, FieldValue]]:
+    """Generate structured records based on a schema.
+
+    Args:
+        n: Number of records to generate.
+        schema: Dictionary mapping field names to type specifications.
+            - Simple types: "name", "email", "uuid", "int", "float", etc.
+            - Integer range: ("int", min, max)
+            - Float range: ("float", min, max)
+            - Text with limits: ("text", min_chars, max_chars)
+            - Date range: ("date", start, end)
+            - Choice: ("choice", ["option1", "option2", ...])
+
+    Returns:
+        A list of dictionaries, each representing a record.
+
+    Raises:
+        ValueError: If n exceeds the maximum batch size (10 million)
+            or if the schema contains invalid specifications.
+    """
+    ...
+
+def records_tuples(n: int, schema: Schema) -> list[tuple[FieldValue, ...]]:
+    """Generate structured records as tuples based on a schema.
+
+    This is faster than records() since it avoids creating dictionaries.
+    Values are returned in alphabetical order of field names.
+
+    Args:
+        n: Number of records to generate.
+        schema: Dictionary mapping field names to type specifications.
+
+    Returns:
+        A list of tuples, each representing a record with values in
+        alphabetical order of field names.
+
+    Raises:
+        ValueError: If n exceeds the maximum batch size (10 million)
+            or if the schema contains invalid specifications.
+    """
+    ...
