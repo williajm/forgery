@@ -12,6 +12,21 @@ Supported Locales:
     - it_IT: Italian (Italy)
     - ja_JP: Japanese (Japan)
 
+Thread Safety:
+    Each Faker instance maintains its own RNG state and is NOT thread-safe.
+    The module-level convenience functions (name(), email(), etc.) use a shared
+    global Faker instance and should not be used concurrently from multiple threads.
+
+    For multi-threaded applications, create a separate Faker instance per thread:
+
+    >>> import threading
+    >>> from forgery import Faker
+    >>> thread_local = threading.local()
+    >>> def get_faker():
+    ...     if not hasattr(thread_local, 'faker'):
+    ...         thread_local.faker = Faker()
+    ...     return thread_local.faker
+
 Example:
     >>> from forgery import fake
     >>> fake.seed(42)
@@ -121,7 +136,8 @@ __all__ = [
 
 __version__ = "0.1.0"
 
-# Default Faker instance for convenient access
+# Default Faker instance for convenient access.
+# WARNING: Not thread-safe. For multi-threaded use, create separate Faker instances.
 fake: Faker = Faker()
 
 

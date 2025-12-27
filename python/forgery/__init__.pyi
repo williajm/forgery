@@ -284,3 +284,92 @@ def records_tuples(n: int, schema: Schema) -> list[tuple[FieldValue, ...]]:
             or if the schema contains invalid specifications.
     """
     ...
+
+# Custom Providers
+def add_provider(name: str, options: list[str]) -> None:
+    """Register a custom provider on the default Faker instance.
+
+    Each option has equal probability of being selected.
+
+    Args:
+        name: The provider name (must not conflict with built-in types).
+        options: List of string options to choose from.
+
+    Raises:
+        ValueError: If name conflicts with built-in type or options is empty.
+    """
+    ...
+
+def add_weighted_provider(name: str, weighted_options: list[tuple[str, int]]) -> None:
+    """Register a weighted custom provider on the default Faker instance.
+
+    Options are selected based on their relative weights. Higher weights mean
+    the option is more likely to be selected.
+
+    Args:
+        name: The provider name (must not conflict with built-in types).
+        weighted_options: List of (value, weight) tuples.
+
+    Raises:
+        ValueError: If name conflicts, options empty, or weights invalid.
+    """
+    ...
+
+def remove_provider(name: str) -> bool:
+    """Remove a custom provider from the default Faker instance.
+
+    Args:
+        name: The provider name to remove.
+
+    Returns:
+        True if provider was removed, False if it didn't exist.
+    """
+    ...
+
+def has_provider(name: str) -> bool:
+    """Check if a custom provider exists on the default Faker instance.
+
+    Args:
+        name: The provider name to check.
+
+    Returns:
+        True if provider exists, False otherwise.
+    """
+    ...
+
+def list_providers() -> list[str]:
+    """List all custom provider names on the default Faker instance.
+
+    Returns:
+        List of registered custom provider names.
+    """
+    ...
+
+def generate(name: str) -> str:
+    """Generate a single value from a custom provider.
+
+    Args:
+        name: The custom provider name.
+
+    Returns:
+        A randomly selected string from the provider's options.
+
+    Raises:
+        ValueError: If provider doesn't exist.
+    """
+    ...
+
+def generate_batch(name: str, n: int) -> list[str]:
+    """Generate a batch of values from a custom provider.
+
+    Args:
+        name: The custom provider name.
+        n: Number of values to generate.
+
+    Returns:
+        A list of randomly selected strings.
+
+    Raises:
+        ValueError: If provider doesn't exist or n exceeds batch limit.
+    """
+    ...
