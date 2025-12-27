@@ -304,6 +304,35 @@ pub fn validate_schema(schema: &BTreeMap<String, FieldSpec>) -> Result<(), Schem
     Ok(())
 }
 
+/// Validate an entire schema with custom provider verification.
+///
+/// This validates the schema structure and also verifies that any custom
+/// provider references exist in the provided custom_providers map.
+/// This ensures validation happens even when n=0.
+pub fn validate_schema_with_custom(
+    schema: &BTreeMap<String, FieldSpec>,
+    custom_providers: &HashMap<String, CustomProvider>,
+) -> Result<(), SchemaError> {
+    for (field_name, spec) in schema {
+        validate_spec(spec).map_err(|e| SchemaError {
+            message: format!("Field '{}': {}", field_name, e.message),
+        })?;
+
+        // Additionally validate that custom providers exist
+        if let FieldSpec::Custom(provider_name) = spec {
+            if !custom_providers.contains_key(provider_name) {
+                return Err(SchemaError {
+                    message: format!(
+                        "Field '{}': custom provider '{}' not found",
+                        field_name, provider_name
+                    ),
+                });
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Generate a value based on a field specification.
 pub fn generate_value(
     rng: &mut ForgeryRng,
@@ -597,8 +626,8 @@ pub fn generate_records_with_custom(
     schema: &BTreeMap<String, FieldSpec>,
     custom_providers: &HashMap<String, CustomProvider>,
 ) -> Result<Vec<BTreeMap<String, Value>>, SchemaError> {
-    // Validate schema upfront (even when n=0)
-    validate_schema(schema)?;
+    // Validate schema upfront (even when n=0), including custom provider existence
+    validate_schema_with_custom(schema, custom_providers)?;
 
     let mut records = Vec::with_capacity(n);
 
@@ -625,8 +654,8 @@ pub fn generate_records_tuples_with_custom(
     field_order: &[String],
     custom_providers: &HashMap<String, CustomProvider>,
 ) -> Result<Vec<Vec<Value>>, SchemaError> {
-    // Validate schema upfront (even when n=0)
-    validate_schema(schema)?;
+    // Validate schema upfront (even when n=0), including custom provider existence
+    validate_schema_with_custom(schema, custom_providers)?;
 
     // Validate field_order: check for duplicates
     let mut seen = std::collections::HashSet::new();

@@ -30,7 +30,7 @@ use rng::ForgeryRng;
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use locale::{Locale, LocaleError};
-use providers::custom::{is_builtin_type, CustomProvider, CustomProviderError};
+use providers::custom::{is_reserved_name, CustomProvider, CustomProviderError};
 use std::str::FromStr;
 
 /// Maximum batch size to prevent memory exhaustion.
@@ -809,11 +809,12 @@ impl Faker {
         schema: &BTreeMap<String, providers::records::FieldSpec>,
     ) -> Result<Vec<BTreeMap<String, providers::records::Value>>, Box<dyn std::error::Error>> {
         validate_batch_size(n)?;
-        Ok(providers::records::generate_records(
+        Ok(providers::records::generate_records_with_custom(
             &mut self.rng,
             self.locale,
             n,
             schema,
+            &self.custom_providers,
         )?)
     }
 
@@ -832,12 +833,13 @@ impl Faker {
         field_order: &[String],
     ) -> Result<Vec<Vec<providers::records::Value>>, Box<dyn std::error::Error>> {
         validate_batch_size(n)?;
-        Ok(providers::records::generate_records_tuples(
+        Ok(providers::records::generate_records_tuples_with_custom(
             &mut self.rng,
             self.locale,
             n,
             schema,
             field_order,
+            &self.custom_providers,
         )?)
     }
 
@@ -862,7 +864,7 @@ impl Faker {
         name: &str,
         options: Vec<String>,
     ) -> Result<(), CustomProviderError> {
-        if is_builtin_type(name) {
+        if is_reserved_name(name) {
             return Err(CustomProviderError::NameCollision(name.to_string()));
         }
         let provider = CustomProvider::uniform(options)?;
@@ -890,7 +892,7 @@ impl Faker {
         name: &str,
         pairs: Vec<(String, u64)>,
     ) -> Result<(), CustomProviderError> {
-        if is_builtin_type(name) {
+        if is_reserved_name(name) {
             return Err(CustomProviderError::NameCollision(name.to_string()));
         }
         let provider = CustomProvider::weighted(pairs)?;
@@ -928,9 +930,11 @@ impl Faker {
     ///
     /// # Returns
     ///
-    /// A vector of provider names.
+    /// A sorted vector of provider names (for deterministic output).
     pub fn list_providers(&self) -> Vec<String> {
-        self.custom_providers.keys().cloned().collect()
+        let mut names: Vec<String> = self.custom_providers.keys().cloned().collect();
+        names.sort();
+        names
     }
 
     /// Get a set of all custom provider names.

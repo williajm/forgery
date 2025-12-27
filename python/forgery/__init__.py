@@ -788,10 +788,10 @@ def add_weighted_provider(name: str, weighted_options: list[tuple[str, int]]) ->
 
     Args:
         name: The provider name (must not conflict with built-in types)
-        weighted_options: List of (value, weight) tuples
+        weighted_options: List of (value, weight) tuples (weights must be >= 0)
 
     Raises:
-        ValueError: If name conflicts, options empty, or weights invalid
+        ValueError: If name conflicts, options empty, weights negative, or weights invalid
 
     Example:
         >>> from forgery import add_weighted_provider, generate_batch, seed
@@ -800,6 +800,10 @@ def add_weighted_provider(name: str, weighted_options: list[tuple[str, int]]) ->
         >>> statuses = generate_batch("status", 1000)
         >>> # Expect ~800 "active", ~200 "inactive"
     """
+    # Validate weights are non-negative before passing to Rust
+    for value, weight in weighted_options:
+        if weight < 0:
+            raise ValueError(f"Weight for '{value}' must be non-negative, got {weight}")
     fake.add_weighted_provider(name, weighted_options)
 
 

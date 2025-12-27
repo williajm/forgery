@@ -169,10 +169,12 @@ impl CustomProvider {
     }
 }
 
-/// Set of built-in type names that cannot be used for custom providers.
+/// Reserved provider names that cannot be used for custom providers.
 ///
-/// This list includes all types recognized by the `records()` schema system.
-pub const BUILTIN_TYPES: &[&str] = &[
+/// This list includes both schema type names (used in `records()`) and
+/// API method names to prevent confusion. Name matching is case-sensitive,
+/// so "Name" is allowed even though "name" is reserved.
+pub const RESERVED_PROVIDER_NAMES: &[&str] = &[
     // Names
     "name",
     "first_name",
@@ -225,7 +227,9 @@ pub const BUILTIN_TYPES: &[&str] = &[
     "text",
 ];
 
-/// Check if a name collides with built-in types.
+/// Check if a name is reserved and cannot be used for custom providers.
+///
+/// Name matching is case-sensitive: "Name" is allowed, "name" is not.
 ///
 /// # Arguments
 ///
@@ -233,9 +237,9 @@ pub const BUILTIN_TYPES: &[&str] = &[
 ///
 /// # Returns
 ///
-/// `true` if the name matches a built-in type, `false` otherwise.
-pub fn is_builtin_type(name: &str) -> bool {
-    BUILTIN_TYPES.contains(&name)
+/// `true` if the name is reserved, `false` otherwise.
+pub fn is_reserved_name(name: &str) -> bool {
+    RESERVED_PROVIDER_NAMES.contains(&name)
 }
 
 #[cfg(test)]
@@ -384,20 +388,27 @@ mod tests {
     }
 
     #[test]
-    fn test_builtin_type_check() {
-        assert!(is_builtin_type("name"));
-        assert!(is_builtin_type("email"));
-        assert!(is_builtin_type("uuid"));
-        assert!(is_builtin_type("int"));
-        assert!(is_builtin_type("float"));
-        assert!(is_builtin_type("phone"));
-        assert!(is_builtin_type("address"));
-        assert!(is_builtin_type("credit_card"));
+    fn test_reserved_name_check() {
+        // Reserved names
+        assert!(is_reserved_name("name"));
+        assert!(is_reserved_name("email"));
+        assert!(is_reserved_name("uuid"));
+        assert!(is_reserved_name("int"));
+        assert!(is_reserved_name("float"));
+        assert!(is_reserved_name("phone"));
+        assert!(is_reserved_name("address"));
+        assert!(is_reserved_name("credit_card"));
 
-        assert!(!is_builtin_type("department"));
-        assert!(!is_builtin_type("custom_field"));
-        assert!(!is_builtin_type("my_provider"));
-        assert!(!is_builtin_type(""));
+        // Custom names (not reserved)
+        assert!(!is_reserved_name("department"));
+        assert!(!is_reserved_name("custom_field"));
+        assert!(!is_reserved_name("my_provider"));
+        assert!(!is_reserved_name(""));
+
+        // Case sensitivity: "Name" is allowed even though "name" is reserved
+        assert!(!is_reserved_name("Name"));
+        assert!(!is_reserved_name("EMAIL"));
+        assert!(!is_reserved_name("Int"));
     }
 
     #[test]

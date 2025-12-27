@@ -258,6 +258,31 @@ class TestModuleLevelConvenience:
         # Clean up
         remove_provider("test_color")
 
+    def test_module_level_list_providers(self) -> None:
+        """Module-level list_providers should return sorted list."""
+        from forgery import list_providers
+
+        # Clean up any previous state
+        for name in list_providers():
+            remove_provider(name)
+
+        # Add some providers in non-alphabetical order
+        add_provider("zebra", ["z"])
+        add_provider("alpha", ["a"])
+        add_provider("middle", ["m"])
+
+        providers = list_providers()
+        assert providers == ["alpha", "middle", "zebra"]  # Should be sorted
+
+        # Clean up
+        for name in providers:
+            remove_provider(name)
+
+    def test_module_level_negative_weight_fails(self) -> None:
+        """Module-level add_weighted_provider should reject negative weights."""
+        with pytest.raises(ValueError, match="must be non-negative"):
+            add_weighted_provider("bad_provider", [("good", 10), ("bad", -5)])
+
 
 class TestEdgeCases:
     """Edge case tests."""
@@ -366,3 +391,12 @@ class TestRecordsIntegrationDetails:
             assert "@" in row["email"]
             assert row["dept"] in ["A", "B"]
             assert 18 <= row["age"] <= 65
+
+    def test_missing_custom_provider_fails_even_n_zero(self) -> None:
+        """Missing custom provider should fail even when n=0."""
+        f = Faker()
+        # Don't register the provider, but reference it in schema
+        # The error is "Unknown type" because schema parsing validates
+        # that string types are either built-in or registered custom providers
+        with pytest.raises(ValueError, match="Unknown type"):
+            f.records(0, {"field": "nonexistent_provider"})
