@@ -19,11 +19,23 @@ class Faker:
     Each instance maintains independent RNG state, allowing for deterministic
     generation when seeded. The default locale is "en_US".
 
+    Supported Locales:
+        - en_US: English (United States) - default
+        - en_GB: English (United Kingdom)
+        - de_DE: German (Germany)
+        - fr_FR: French (France)
+        - es_ES: Spanish (Spain)
+        - it_IT: Italian (Italy)
+        - ja_JP: Japanese (Japan)
+
     Example:
         >>> from forgery import Faker
         >>> fake = Faker()
         >>> fake.seed(42)
         >>> names = fake.names(100)
+
+        >>> german_fake = Faker("de_DE")
+        >>> german_fake.names(10)  # German names
     """
 
     def __init__(self, locale: str = "en_US") -> None:
@@ -31,6 +43,10 @@ class Faker:
 
         Args:
             locale: The locale for generated data (default: "en_US").
+                    Supported: en_US, en_GB, de_DE, fr_FR, es_ES, it_IT, ja_JP.
+
+        Raises:
+            ValueError: If locale is not supported.
         """
         ...
 

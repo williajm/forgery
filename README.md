@@ -40,9 +40,46 @@ assert data1 == data2
 
 - **Batch-first design**: Generate thousands of values in a single call
 - **50-100x faster** than Faker for batch operations
+- **Multi-locale support**: 7 locales with locale-specific data
 - **Deterministic seeding**: Reproducible output for testing
 - **Type hints**: Full type stub support for IDE autocompletion
 - **Familiar API**: Method names match Faker for easy migration
+
+## Locale Support
+
+forgery supports 7 locales with locale-specific names, addresses, phone numbers, and more:
+
+| Locale | Language | Country |
+|--------|----------|---------|
+| `en_US` | English | United States (default) |
+| `en_GB` | English | United Kingdom |
+| `de_DE` | German | Germany |
+| `fr_FR` | French | France |
+| `es_ES` | Spanish | Spain |
+| `it_IT` | Italian | Italy |
+| `ja_JP` | Japanese | Japan |
+
+```python
+from forgery import Faker
+
+# Default locale is en_US
+fake = Faker()
+fake.names(5)  # American names
+
+# Use a different locale
+german = Faker("de_DE")
+german.names(5)  # German names
+
+japanese = Faker("ja_JP")
+japanese.addresses(3)  # Japanese addresses with prefecture
+```
+
+Each locale provides:
+- **Names**: First names, last names, and full names in the local language
+- **Addresses**: Cities, regions/states, postal codes in the correct format
+- **Phone numbers**: Country-specific formats and country codes
+- **Companies**: Local company names and job titles
+- **Colors**: Color names in the local language
 
 ## API
 

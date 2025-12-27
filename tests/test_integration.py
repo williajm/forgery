@@ -394,7 +394,7 @@ class TestTypeStubs:
     def test_faker_constructor_unsupported_locale(self) -> None:
         """Faker(locale) should raise ValueError for unsupported locales."""
         with pytest.raises(ValueError, match="unsupported locale"):
-            Faker("fr_FR")
+            Faker("xx_XX")
 
     def test_integers_default_params(self) -> None:
         """integers(n) should use default min/max."""

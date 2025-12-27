@@ -36,9 +36,87 @@ pub const DEFAULT_START_DATE: &str = "1970-01-01";
 #[allow(dead_code)]
 pub const DEFAULT_END_DATE: &str = "2030-12-31";
 
+/// Fixed reference date for deterministic date-of-birth calculations.
+const REFERENCE_DATE: (i32, u32, u32) = (2024, 1, 1);
+
 /// Parse a date string in YYYY-MM-DD format.
 fn parse_date(s: &str) -> Result<NaiveDate, String> {
     NaiveDate::parse_from_str(s, "%Y-%m-%d").map_err(|e| e.to_string())
+}
+
+/// Validated date range with pre-computed day values.
+struct ValidatedDateRange {
+    start_days: i32,
+    end_days: i32,
+}
+
+/// Parse and validate a date range, returning the days-from-CE values.
+fn validate_date_range(start: &str, end: &str) -> Result<ValidatedDateRange, DateRangeError> {
+    let start_date = parse_date(start).map_err(|e| DateRangeError {
+        start: start.to_string(),
+        end: end.to_string(),
+        reason: format!("invalid start date: {}", e),
+    })?;
+
+    let end_date = parse_date(end).map_err(|e| DateRangeError {
+        start: start.to_string(),
+        end: end.to_string(),
+        reason: format!("invalid end date: {}", e),
+    })?;
+
+    if start_date > end_date {
+        return Err(DateRangeError {
+            start: start.to_string(),
+            end: end.to_string(),
+            reason: "start date must be before or equal to end date".to_string(),
+        });
+    }
+
+    Ok(ValidatedDateRange {
+        start_days: start_date.num_days_from_ce(),
+        end_days: end_date.num_days_from_ce(),
+    })
+}
+
+/// Generate a random date from a validated range.
+#[inline]
+fn random_date_from_range(
+    rng: &mut ForgeryRng,
+    range: &ValidatedDateRange,
+    start: &str,
+    end: &str,
+) -> Result<NaiveDate, DateRangeError> {
+    let days = rng.gen_range(range.start_days, range.end_days);
+    NaiveDate::from_num_days_from_ce_opt(days).ok_or_else(|| DateRangeError {
+        start: start.to_string(),
+        end: end.to_string(),
+        reason: format!("internal error: invalid days from CE value {}", days),
+    })
+}
+
+/// Calculate the date range for a given age range.
+fn calculate_dob_range(min_age: u32, max_age: u32) -> Result<(String, String), DateRangeError> {
+    if min_age > max_age {
+        return Err(DateRangeError {
+            start: format!("min_age={}", min_age),
+            end: format!("max_age={}", max_age),
+            reason: "min_age must be less than or equal to max_age".to_string(),
+        });
+    }
+
+    let today = NaiveDate::from_ymd_opt(REFERENCE_DATE.0, REFERENCE_DATE.1, REFERENCE_DATE.2)
+        .expect("invalid reference date");
+    let end_date = today
+        .with_year(today.year() - min_age as i32)
+        .unwrap_or(today);
+    let start_date = today
+        .with_year(today.year() - max_age as i32 - 1)
+        .unwrap_or(today);
+
+    Ok((
+        start_date.format("%Y-%m-%d").to_string(),
+        end_date.format("%Y-%m-%d").to_string(),
+    ))
 }
 
 /// Generate a batch of random dates within a range.
@@ -59,45 +137,17 @@ pub fn generate_dates(
     start: &str,
     end: &str,
 ) -> Result<Vec<String>, DateRangeError> {
-    let start_date = parse_date(start).map_err(|e| DateRangeError {
-        start: start.to_string(),
-        end: end.to_string(),
-        reason: format!("invalid start date: {}", e),
-    })?;
-
-    let end_date = parse_date(end).map_err(|e| DateRangeError {
-        start: start.to_string(),
-        end: end.to_string(),
-        reason: format!("invalid end date: {}", e),
-    })?;
-
-    if start_date > end_date {
-        return Err(DateRangeError {
-            start: start.to_string(),
-            end: end.to_string(),
-            reason: "start date must be before or equal to end date".to_string(),
-        });
-    }
-
-    let start_days = start_date.num_days_from_ce();
-    let end_days = end_date.num_days_from_ce();
+    let range = validate_date_range(start, end)?;
 
     let mut dates = Vec::with_capacity(n);
     for _ in 0..n {
-        let days = rng.gen_range(start_days, end_days);
-        let date = NaiveDate::from_num_days_from_ce_opt(days).ok_or_else(|| DateRangeError {
-            start: start.to_string(),
-            end: end.to_string(),
-            reason: format!("internal error: invalid days from CE value {}", days),
-        })?;
+        let date = random_date_from_range(rng, &range, start, end)?;
         dates.push(date.format("%Y-%m-%d").to_string());
     }
     Ok(dates)
 }
 
 /// Generate a single random date within a range.
-///
-/// More efficient than `generate_dates(rng, 1, start, end)` as it avoids Vec allocation.
 ///
 /// # Errors
 ///
@@ -108,34 +158,8 @@ pub fn generate_date(
     start: &str,
     end: &str,
 ) -> Result<String, DateRangeError> {
-    let start_date = parse_date(start).map_err(|e| DateRangeError {
-        start: start.to_string(),
-        end: end.to_string(),
-        reason: format!("invalid start date: {}", e),
-    })?;
-
-    let end_date = parse_date(end).map_err(|e| DateRangeError {
-        start: start.to_string(),
-        end: end.to_string(),
-        reason: format!("invalid end date: {}", e),
-    })?;
-
-    if start_date > end_date {
-        return Err(DateRangeError {
-            start: start.to_string(),
-            end: end.to_string(),
-            reason: "start date must be before or equal to end date".to_string(),
-        });
-    }
-
-    let start_days = start_date.num_days_from_ce();
-    let end_days = end_date.num_days_from_ce();
-    let days = rng.gen_range(start_days, end_days);
-    let date = NaiveDate::from_num_days_from_ce_opt(days).ok_or_else(|| DateRangeError {
-        start: start.to_string(),
-        end: end.to_string(),
-        reason: format!("internal error: invalid days from CE value {}", days),
-    })?;
+    let range = validate_date_range(start, end)?;
+    let date = random_date_from_range(rng, &range, start, end)?;
     Ok(date.format("%Y-%m-%d").to_string())
 }
 
@@ -163,27 +187,7 @@ pub fn generate_dates_of_birth(
     min_age: u32,
     max_age: u32,
 ) -> Result<Vec<String>, DateRangeError> {
-    if min_age > max_age {
-        return Err(DateRangeError {
-            start: format!("min_age={}", min_age),
-            end: format!("max_age={}", max_age),
-            reason: "min_age must be less than or equal to max_age".to_string(),
-        });
-    }
-
-    // Calculate date range based on ages
-    // Use a fixed "today" for determinism (2024-01-01)
-    let today = NaiveDate::from_ymd_opt(2024, 1, 1).unwrap();
-    let end_date = today
-        .with_year(today.year() - min_age as i32)
-        .unwrap_or(today);
-    let start_date = today
-        .with_year(today.year() - max_age as i32 - 1)
-        .unwrap_or(today);
-
-    let start_str = start_date.format("%Y-%m-%d").to_string();
-    let end_str = end_date.format("%Y-%m-%d").to_string();
-
+    let (start_str, end_str) = calculate_dob_range(min_age, max_age)?;
     generate_dates(rng, n, &start_str, &end_str)
 }
 
@@ -204,26 +208,30 @@ pub fn generate_date_of_birth(
     min_age: u32,
     max_age: u32,
 ) -> Result<String, DateRangeError> {
-    if min_age > max_age {
-        return Err(DateRangeError {
-            start: format!("min_age={}", min_age),
-            end: format!("max_age={}", max_age),
-            reason: "min_age must be less than or equal to max_age".to_string(),
-        });
-    }
-
-    let today = NaiveDate::from_ymd_opt(2024, 1, 1).unwrap();
-    let end_date = today
-        .with_year(today.year() - min_age as i32)
-        .unwrap_or(today);
-    let start_date = today
-        .with_year(today.year() - max_age as i32 - 1)
-        .unwrap_or(today);
-
-    let start_str = start_date.format("%Y-%m-%d").to_string();
-    let end_str = end_date.format("%Y-%m-%d").to_string();
-
+    let (start_str, end_str) = calculate_dob_range(min_age, max_age)?;
     generate_date(rng, &start_str, &end_str)
+}
+
+/// Generate a random time component (hour, minute, second).
+#[inline]
+fn random_time(rng: &mut ForgeryRng) -> (u32, u32, u32) {
+    (
+        rng.gen_range(0u32, 23),
+        rng.gen_range(0u32, 59),
+        rng.gen_range(0u32, 59),
+    )
+}
+
+/// Format a date and time as ISO 8601 datetime string.
+#[inline]
+fn format_datetime(date: NaiveDate, hour: u32, minute: u32, second: u32) -> String {
+    format!(
+        "{}T{:02}:{:02}:{:02}",
+        date.format("%Y-%m-%d"),
+        hour,
+        minute,
+        second
+    )
 }
 
 /// Generate a batch of random datetime strings in ISO 8601 format.
@@ -244,47 +252,13 @@ pub fn generate_datetimes(
     start: &str,
     end: &str,
 ) -> Result<Vec<String>, DateRangeError> {
-    let start_date = parse_date(start).map_err(|e| DateRangeError {
-        start: start.to_string(),
-        end: end.to_string(),
-        reason: format!("invalid start date: {}", e),
-    })?;
-
-    let end_date = parse_date(end).map_err(|e| DateRangeError {
-        start: start.to_string(),
-        end: end.to_string(),
-        reason: format!("invalid end date: {}", e),
-    })?;
-
-    if start_date > end_date {
-        return Err(DateRangeError {
-            start: start.to_string(),
-            end: end.to_string(),
-            reason: "start date must be before or equal to end date".to_string(),
-        });
-    }
-
-    let start_days = start_date.num_days_from_ce();
-    let end_days = end_date.num_days_from_ce();
+    let range = validate_date_range(start, end)?;
 
     let mut datetimes = Vec::with_capacity(n);
     for _ in 0..n {
-        let days = rng.gen_range(start_days, end_days);
-        let date = NaiveDate::from_num_days_from_ce_opt(days).ok_or_else(|| DateRangeError {
-            start: start.to_string(),
-            end: end.to_string(),
-            reason: format!("internal error: invalid days from CE value {}", days),
-        })?;
-        let hour: u32 = rng.gen_range(0, 23);
-        let minute: u32 = rng.gen_range(0, 59);
-        let second: u32 = rng.gen_range(0, 59);
-        datetimes.push(format!(
-            "{}T{:02}:{:02}:{:02}",
-            date.format("%Y-%m-%d"),
-            hour,
-            minute,
-            second
-        ));
+        let date = random_date_from_range(rng, &range, start, end)?;
+        let (hour, minute, second) = random_time(rng);
+        datetimes.push(format_datetime(date, hour, minute, second));
     }
     Ok(datetimes)
 }
@@ -300,44 +274,10 @@ pub fn generate_datetime(
     start: &str,
     end: &str,
 ) -> Result<String, DateRangeError> {
-    let start_date = parse_date(start).map_err(|e| DateRangeError {
-        start: start.to_string(),
-        end: end.to_string(),
-        reason: format!("invalid start date: {}", e),
-    })?;
-
-    let end_date = parse_date(end).map_err(|e| DateRangeError {
-        start: start.to_string(),
-        end: end.to_string(),
-        reason: format!("invalid end date: {}", e),
-    })?;
-
-    if start_date > end_date {
-        return Err(DateRangeError {
-            start: start.to_string(),
-            end: end.to_string(),
-            reason: "start date must be before or equal to end date".to_string(),
-        });
-    }
-
-    let start_days = start_date.num_days_from_ce();
-    let end_days = end_date.num_days_from_ce();
-    let days = rng.gen_range(start_days, end_days);
-    let date = NaiveDate::from_num_days_from_ce_opt(days).ok_or_else(|| DateRangeError {
-        start: start.to_string(),
-        end: end.to_string(),
-        reason: format!("internal error: invalid days from CE value {}", days),
-    })?;
-    let hour: u32 = rng.gen_range(0, 23);
-    let minute: u32 = rng.gen_range(0, 59);
-    let second: u32 = rng.gen_range(0, 59);
-    Ok(format!(
-        "{}T{:02}:{:02}:{:02}",
-        date.format("%Y-%m-%d"),
-        hour,
-        minute,
-        second
-    ))
+    let range = validate_date_range(start, end)?;
+    let date = random_date_from_range(rng, &range, start, end)?;
+    let (hour, minute, second) = random_time(rng);
+    Ok(format_datetime(date, hour, minute, second))
 }
 
 #[cfg(test)]
