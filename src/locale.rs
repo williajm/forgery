@@ -69,15 +69,6 @@ impl Locale {
     pub const fn family_name_first(&self) -> bool {
         matches!(self, Locale::JaJP)
     }
-
-    /// Check if this locale places street number before street name.
-    #[inline]
-    pub const fn number_before_street(&self) -> bool {
-        match self {
-            Locale::EnUS | Locale::EnGB => true,
-            Locale::DeDE | Locale::FrFR | Locale::EsES | Locale::ItIT | Locale::JaJP => false,
-        }
-    }
 }
 
 impl fmt::Display for Locale {
@@ -208,15 +199,6 @@ mod tests {
         assert!(!Locale::EnUS.family_name_first());
         assert!(!Locale::DeDE.family_name_first());
         assert!(Locale::JaJP.family_name_first());
-    }
-
-    #[test]
-    fn test_number_before_street() {
-        assert!(Locale::EnUS.number_before_street());
-        assert!(Locale::EnGB.number_before_street());
-        assert!(!Locale::DeDE.number_before_street());
-        assert!(!Locale::FrFR.number_before_street());
-        assert!(!Locale::JaJP.number_before_street());
     }
 
     #[test]

@@ -265,6 +265,80 @@ class TestLocaleDeterminism:
         assert us_names != de_names
 
 
+class TestLocaleAddressFormats:
+    """Test locale-specific address formatting."""
+
+    def test_german_street_address_no_space(self) -> None:
+        """German street addresses should have compound names (no space)."""
+        fake = Faker("de_DE")
+        fake.seed(42)
+        addresses = fake.street_addresses(100)
+        for addr in addresses:
+            # German addresses end with number, street name is compound
+            # e.g., "Hauptstraße 123" not "Haupt straße 123"
+            # The number should be at the end
+            parts = addr.split()
+            assert parts[-1].isdigit(), f"German address should end with number: {addr}"
+            # There should be exactly 2 parts: compound street name and number
+            assert len(parts) == 2, f"German address should be 'StreetName Number': {addr}"
+
+    def test_us_street_address_format(self) -> None:
+        """US street addresses should have number before street name."""
+        fake = Faker("en_US")
+        fake.seed(42)
+        addresses = fake.street_addresses(100)
+        for addr in addresses:
+            parts = addr.split()
+            # First part should be the number
+            assert parts[0].isdigit(), f"US address should start with number: {addr}"
+            # Should have at least 3 parts: number, street, suffix
+            assert len(parts) >= 3, f"US address should have number, street, suffix: {addr}"
+
+    def test_german_full_address_format(self) -> None:
+        """German full addresses should use German template format."""
+        fake = Faker("de_DE")
+        fake.seed(42)
+        addresses = fake.addresses(50)
+        for addr in addresses:
+            # German template is "{street}\n{postal} {city}"
+            # Should have newline
+            assert "\n" in addr, f"German address should have newline: {addr}"
+            lines = addr.split("\n")
+            assert len(lines) == 2, f"German address should have 2 lines: {addr}"
+            # First line is street, second is postal+city
+            second_line = lines[1]
+            # Should start with 5-digit postal code
+            parts = second_line.split()
+            assert len(parts) >= 2, f"Second line should have postal and city: {addr}"
+            assert parts[0].isdigit() and len(parts[0]) == 5, (
+                f"Should start with 5-digit postal: {addr}"
+            )
+
+    def test_japanese_full_address_format(self) -> None:
+        """Japanese full addresses should use Japanese template format."""
+        fake = Faker("ja_JP")
+        fake.seed(42)
+        addresses = fake.addresses(50)
+        for addr in addresses:
+            # Japanese template is "〒{postal} {region}{city}{street}"
+            # Should start with postal symbol
+            assert addr.startswith("〒"), f"Japanese address should start with 〒: {addr}"
+            # Postal code follows (format: XXX-XXXX)
+            assert "-" in addr[:12], f"Japanese address should have postal code: {addr}"
+
+    def test_us_full_address_format(self) -> None:
+        """US full addresses should use US template format."""
+        fake = Faker("en_US")
+        fake.seed(42)
+        addresses = fake.addresses(50)
+        for addr in addresses:
+            # US template is "{street}, {city}, {region_abbr} {postal}"
+            # Should have commas
+            assert addr.count(",") >= 2, f"US address should have commas: {addr}"
+            # Should not have newlines
+            assert "\n" not in addr, f"US address should not have newlines: {addr}"
+
+
 class TestLocaleRecords:
     """Test record generation works with all locales."""
 

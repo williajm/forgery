@@ -65,6 +65,12 @@ pub struct AddressFormat {
     /// - `true` for US/UK: "123 Main Street"
     /// - `false` for Germany/France: "Hauptstraße 123"
     pub number_before_street: bool,
+
+    /// Separator between street name stem and suffix.
+    /// - `""` for German: "Haupt" + "straße" = "Hauptstraße"
+    /// - `" "` for French: "rue" + " " + "de la République" = "rue de la République"
+    /// - `" "` for English: "Main" + " " + "Street" = "Main Street"
+    pub street_name_separator: &'static str,
 }
 
 impl PhoneFormat {
@@ -85,11 +91,25 @@ impl PostalCodeFormat {
 }
 
 impl AddressFormat {
-    /// Create a new address format.
+    /// Create a new address format with default space separator.
     pub const fn new(template: &'static str, number_before_street: bool) -> Self {
         Self {
             template,
             number_before_street,
+            street_name_separator: " ",
+        }
+    }
+
+    /// Create a new address format with custom street name separator.
+    pub const fn with_separator(
+        template: &'static str,
+        number_before_street: bool,
+        street_name_separator: &'static str,
+    ) -> Self {
+        Self {
+            template,
+            number_before_street,
+            street_name_separator,
         }
     }
 }
@@ -116,5 +136,13 @@ mod tests {
         let format = AddressFormat::new("{street}, {city}, {region_abbr} {postal}", true);
         assert!(format.template.contains("{street}"));
         assert!(format.number_before_street);
+        assert_eq!(format.street_name_separator, " ");
+    }
+
+    #[test]
+    fn test_address_format_with_separator() {
+        let format = AddressFormat::with_separator("{street}\n{postal} {city}", false, "");
+        assert!(!format.number_before_street);
+        assert_eq!(format.street_name_separator, "");
     }
 }

@@ -24,6 +24,7 @@ pub fn generate_street_address(rng: &mut ForgeryRng, locale: Locale) -> String {
     let data = get_locale_data(locale);
     let street_names = data.street_names().unwrap_or(&[]);
     let street_suffixes = data.street_suffixes().unwrap_or(&[]);
+    let format = data.address_format();
 
     let number: u32 = rng.gen_range(1, 9999);
     let street = if street_names.is_empty() {
@@ -37,10 +38,19 @@ pub fn generate_street_address(rng: &mut ForgeryRng, locale: Locale) -> String {
         rng.choose(street_suffixes)
     };
 
-    if locale.number_before_street() {
-        format!("{} {} {}", number, street, suffix)
+    // Get separator and number position from address format
+    let (number_before_street, separator) = match format {
+        Some(fmt) => (fmt.number_before_street, fmt.street_name_separator),
+        None => (true, " "), // Default to US-style
+    };
+
+    // Build the street name with appropriate separator
+    let street_name = format!("{}{}{}", street, separator, suffix);
+
+    if number_before_street {
+        format!("{} {}", number, street_name)
     } else {
-        format!("{} {} {}", street, suffix, number)
+        format!("{} {}", street_name, number)
     }
 }
 
@@ -176,13 +186,31 @@ pub fn generate_addresses(rng: &mut ForgeryRng, locale: Locale, n: usize) -> Vec
 }
 
 /// Generate a single random full address.
+///
+/// Uses the locale's address format template to assemble components.
+/// Supported placeholders: `{street}`, `{city}`, `{region}`, `{region_abbr}`, `{postal}`
 #[inline]
 pub fn generate_address(rng: &mut ForgeryRng, locale: Locale) -> String {
+    let data = get_locale_data(locale);
     let street = generate_street_address(rng, locale);
     let city = generate_city(rng, locale);
-    let state = generate_state_abbr(rng, locale);
-    let zip = generate_zip_code(rng, locale);
-    format!("{}, {}, {} {}", street, city, state, zip)
+    let region = generate_state(rng, locale);
+    let region_abbr = generate_state_abbr(rng, locale);
+    let postal = generate_zip_code(rng, locale);
+
+    // Get the template from locale's address format, or use US default
+    let template = data
+        .address_format()
+        .map(|f| f.template)
+        .unwrap_or("{street}, {city}, {region_abbr} {postal}");
+
+    // Replace placeholders with actual values
+    template
+        .replace("{street}", &street)
+        .replace("{city}", &city)
+        .replace("{region}", &region)
+        .replace("{region_abbr}", &region_abbr)
+        .replace("{postal}", &postal)
 }
 
 #[cfg(test)]

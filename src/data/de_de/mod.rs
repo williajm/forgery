@@ -44,8 +44,10 @@ const DE_PHONE_FORMAT: PhoneFormat = PhoneFormat::new(DE_PHONE_PATTERNS, "+49");
 const DE_POSTAL_FORMAT: PostalCodeFormat = PostalCodeFormat::new(DE_POSTAL_PATTERNS);
 
 /// German address format specification.
-/// In Germany, street number comes after street name.
-const DE_ADDRESS_FORMAT: AddressFormat = AddressFormat::new("{street}\n{postal} {city}", false);
+/// In Germany, street number comes after street name, and street names are
+/// compound words without spaces (e.g., "Hauptstraße" not "Haupt straße").
+const DE_ADDRESS_FORMAT: AddressFormat =
+    AddressFormat::with_separator("{street}\n{postal} {city}", false, "");
 
 /// German locale data provider.
 pub struct DeDEData;
