@@ -1391,90 +1391,110 @@ fn parse_py_schema(
 
 /// Parse a Python field specification into a Rust FieldSpec.
 fn parse_field_spec(value: &Bound<'_, PyAny>) -> PyResult<providers::records::FieldSpec> {
-    // Try simple string type first
     if value.is_instance_of::<PyString>() {
-        let type_str: String = value.extract()?;
-        return providers::records::parse_simple_type(&type_str)
-            .map_err(|e| PyValueError::new_err(e.to_string()));
+        return parse_string_field_spec(value);
     }
-
-    // Try tuple specification
     if value.is_instance_of::<PyTuple>() {
-        let tuple: Vec<Bound<'_, PyAny>> = value.extract()?;
-        if tuple.len() < 2 {
-            return Err(PyValueError::new_err(
-                "Tuple specification must have at least 2 elements",
-            ));
-        }
-
-        let type_name: String = tuple[0].extract()?;
-
-        match type_name.as_str() {
-            "int" => {
-                if tuple.len() != 3 {
-                    return Err(PyValueError::new_err(
-                        "int specification must be (\"int\", min, max)",
-                    ));
-                }
-                let min: i64 = tuple[1].extract()?;
-                let max: i64 = tuple[2].extract()?;
-                Ok(providers::records::FieldSpec::IntRange { min, max })
-            }
-            "float" => {
-                if tuple.len() != 3 {
-                    return Err(PyValueError::new_err(
-                        "float specification must be (\"float\", min, max)",
-                    ));
-                }
-                let min: f64 = tuple[1].extract()?;
-                let max: f64 = tuple[2].extract()?;
-                Ok(providers::records::FieldSpec::FloatRange { min, max })
-            }
-            "text" => {
-                if tuple.len() != 3 {
-                    return Err(PyValueError::new_err(
-                        "text specification must be (\"text\", min_chars, max_chars)",
-                    ));
-                }
-                let min_chars: usize = tuple[1].extract()?;
-                let max_chars: usize = tuple[2].extract()?;
-                Ok(providers::records::FieldSpec::Text {
-                    min_chars,
-                    max_chars,
-                })
-            }
-            "date" => {
-                if tuple.len() != 3 {
-                    return Err(PyValueError::new_err(
-                        "date specification must be (\"date\", start, end)",
-                    ));
-                }
-                let start: String = tuple[1].extract()?;
-                let end: String = tuple[2].extract()?;
-                Ok(providers::records::FieldSpec::DateRange { start, end })
-            }
-            "choice" => {
-                if tuple.len() != 2 {
-                    return Err(PyValueError::new_err(
-                        "choice specification must be (\"choice\", [options])",
-                    ));
-                }
-                if !tuple[1].is_instance_of::<PyList>() {
-                    return Err(PyValueError::new_err("choice options must be a list"));
-                }
-                let options: Vec<String> = tuple[1].extract()?;
-                Ok(providers::records::FieldSpec::Choice(options))
-            }
-            _ => Err(PyValueError::new_err(format!(
-                "Unknown parameterized type: {}",
-                type_name
-            ))),
-        }
-    } else {
-        Err(PyValueError::new_err(
-            "Field specification must be a string or tuple",
-        ))
+        return parse_tuple_field_spec(value);
     }
+    Err(PyValueError::new_err(
+        "Field specification must be a string or tuple",
+    ))
+}
+
+/// Parse a simple string type specification.
+fn parse_string_field_spec(value: &Bound<'_, PyAny>) -> PyResult<providers::records::FieldSpec> {
+    let type_str: String = value.extract()?;
+    providers::records::parse_simple_type(&type_str)
+        .map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
+/// Parse a tuple type specification like ("int", min, max).
+fn parse_tuple_field_spec(value: &Bound<'_, PyAny>) -> PyResult<providers::records::FieldSpec> {
+    let tuple: Vec<Bound<'_, PyAny>> = value.extract()?;
+    if tuple.len() < 2 {
+        return Err(PyValueError::new_err(
+            "Tuple specification must have at least 2 elements",
+        ));
+    }
+
+    let type_name: String = tuple[0].extract()?;
+    match type_name.as_str() {
+        "int" => parse_int_range(&tuple),
+        "float" => parse_float_range(&tuple),
+        "text" => parse_text_spec(&tuple),
+        "date" => parse_date_range(&tuple),
+        "choice" => parse_choice_spec(&tuple),
+        _ => Err(PyValueError::new_err(format!(
+            "Unknown parameterized type: {}",
+            type_name
+        ))),
+    }
+}
+
+/// Parse an integer range specification: ("int", min, max).
+fn parse_int_range(tuple: &[Bound<'_, PyAny>]) -> PyResult<providers::records::FieldSpec> {
+    if tuple.len() != 3 {
+        return Err(PyValueError::new_err(
+            "int specification must be (\"int\", min, max)",
+        ));
+    }
+    let min: i64 = tuple[1].extract()?;
+    let max: i64 = tuple[2].extract()?;
+    Ok(providers::records::FieldSpec::IntRange { min, max })
+}
+
+/// Parse a float range specification: ("float", min, max).
+fn parse_float_range(tuple: &[Bound<'_, PyAny>]) -> PyResult<providers::records::FieldSpec> {
+    if tuple.len() != 3 {
+        return Err(PyValueError::new_err(
+            "float specification must be (\"float\", min, max)",
+        ));
+    }
+    let min: f64 = tuple[1].extract()?;
+    let max: f64 = tuple[2].extract()?;
+    Ok(providers::records::FieldSpec::FloatRange { min, max })
+}
+
+/// Parse a text specification: ("text", min_chars, max_chars).
+fn parse_text_spec(tuple: &[Bound<'_, PyAny>]) -> PyResult<providers::records::FieldSpec> {
+    if tuple.len() != 3 {
+        return Err(PyValueError::new_err(
+            "text specification must be (\"text\", min_chars, max_chars)",
+        ));
+    }
+    let min_chars: usize = tuple[1].extract()?;
+    let max_chars: usize = tuple[2].extract()?;
+    Ok(providers::records::FieldSpec::Text {
+        min_chars,
+        max_chars,
+    })
+}
+
+/// Parse a date range specification: ("date", start, end).
+fn parse_date_range(tuple: &[Bound<'_, PyAny>]) -> PyResult<providers::records::FieldSpec> {
+    if tuple.len() != 3 {
+        return Err(PyValueError::new_err(
+            "date specification must be (\"date\", start, end)",
+        ));
+    }
+    let start: String = tuple[1].extract()?;
+    let end: String = tuple[2].extract()?;
+    Ok(providers::records::FieldSpec::DateRange { start, end })
+}
+
+/// Parse a choice specification: ("choice", [options]).
+fn parse_choice_spec(tuple: &[Bound<'_, PyAny>]) -> PyResult<providers::records::FieldSpec> {
+    if tuple.len() != 2 {
+        return Err(PyValueError::new_err(
+            "choice specification must be (\"choice\", [options])",
+        ));
+    }
+    if !tuple[1].is_instance_of::<PyList>() {
+        return Err(PyValueError::new_err("choice options must be a list"));
+    }
+    let options: Vec<String> = tuple[1].extract()?;
+    Ok(providers::records::FieldSpec::Choice(options))
 }
 
 /// Convert a Rust Value to a Python object.
