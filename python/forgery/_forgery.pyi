@@ -1,5 +1,7 @@
 """Type stubs for the Rust extension module."""
 
+import builtins
+
 class Faker:
     """A fake data generator with its own random state.
 
@@ -150,11 +152,11 @@ class Faker:
         ...
 
     # Float generators
-    def float(self, min: float = 0.0, max: float = 1.0) -> float:
+    def float(self, min: builtins.float = 0.0, max: builtins.float = 1.0) -> builtins.float:
         """Generate a single random float within a range."""
         ...
 
-    def floats(self, n: int, min: float = 0.0, max: float = 1.0) -> list[float]:
+    def floats(self, n: int, min: builtins.float = 0.0, max: builtins.float = 1.0) -> list[builtins.float]:
         """Generate a batch of random floats within a range."""
         ...
 
