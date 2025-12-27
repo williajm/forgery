@@ -300,6 +300,9 @@ def records_arrow(n: int, schema: Schema) -> Any:
     Note:
         Requires pyarrow to be installed: pip install pyarrow
 
+        Columns are ordered alphabetically by field name (not by Python dict
+        insertion order), matching the behavior of records_tuples().
+
     Args:
         n: Number of records to generate.
         schema: Dictionary mapping field names to type specifications.

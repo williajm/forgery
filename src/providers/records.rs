@@ -777,15 +777,13 @@ pub fn generate_records_arrow_with_custom(
     // Validate schema upfront (even when n=0), including custom provider existence
     validate_schema_with_custom(schema, custom_providers)?;
 
-    // Build Arrow schema and collect field info
+    // Build Arrow schema and collect field specs
     let mut arrow_fields: Vec<Field> = Vec::with_capacity(schema.len());
-    let mut field_names: Vec<String> = Vec::with_capacity(schema.len());
     let mut field_specs: Vec<&FieldSpec> = Vec::with_capacity(schema.len());
 
     for (name, spec) in schema.iter() {
         let arrow_type = field_spec_to_arrow_type(spec);
         arrow_fields.push(Field::new(name, arrow_type, false));
-        field_names.push(name.clone());
         field_specs.push(spec);
     }
 

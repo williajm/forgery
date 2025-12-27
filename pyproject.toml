@@ -38,7 +38,7 @@ dev = [
     "ruff>=0.14",
     "faker>=39.0",  # For benchmarking comparison
     "bandit>=1.9",
-    "pyarrow>=18.0",  # For records_arrow() tests
+    "pyarrow>=18.0; python_version<'3.14'",  # For records_arrow() tests
 ]
 
 [tool.maturin]
