@@ -499,9 +499,7 @@ def main() -> None:
     import asyncio
 
     # Helper to run async benchmark
-    def bench_async(
-        name: str, coro_func: Callable[[], object], iterations: int = 3
-    ) -> float:
+    def bench_async(name: str, coro_func: Callable[[], object], iterations: int = 3) -> float:
         """Run an async benchmark and return the best time."""
         times = []
         for _ in range(iterations):
@@ -544,9 +542,7 @@ def main() -> None:
             return await forgery.records_arrow_async(N, schema)
 
         forgery.seed(42)
-        async_arrow_time = bench_async(
-            f"forgery.records_arrow_async({N})", async_records_arrow
-        )
+        async_arrow_time = bench_async(f"forgery.records_arrow_async({N})", async_records_arrow)
         overhead = ((async_arrow_time / sync_arrow_time) - 1) * 100
         print(f"  Async overhead: {overhead:+.1f}%\n")
 
