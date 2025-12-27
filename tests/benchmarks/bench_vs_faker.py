@@ -422,6 +422,58 @@ def main() -> None:
     )
 
     # ==========================================================================
+    # Structured Data Generation
+    # ==========================================================================
+    print("=" * 60)
+    print("STRUCTURED DATA GENERATION")
+    print("=" * 60 + "\n")
+
+    # Define a typical schema for benchmarking
+    schema = {
+        "id": "uuid",
+        "name": "name",
+        "email": "email",
+        "age": ("int", 18, 65),
+        "salary": ("float", 30000.0, 150000.0),
+        "status": ("choice", ["active", "inactive", "pending"]),
+    }
+
+    def faker_records(n: int) -> list[dict[str, object]]:
+        """Generate records using Faker (the slow way)."""
+        records = []
+        statuses = ["active", "inactive", "pending"]
+        for _ in range(n):
+            records.append(
+                {
+                    "id": faker.uuid4(),
+                    "name": faker.name(),
+                    "email": faker.email(),
+                    "age": faker.random_int(18, 65),
+                    "salary": faker.pyfloat(min_value=30000.0, max_value=150000.0),
+                    "status": faker.random_element(statuses),
+                }
+            )
+        return records
+
+    forgery.seed(42)
+    run_benchmark(
+        "Records (6-field schema)",
+        lambda: forgery.records(N, schema),
+        (lambda: faker_records(N)) if has_faker else None,
+        results,
+        "records",
+    )
+
+    forgery.seed(42)
+    run_benchmark(
+        "Records Tuples (6-field schema)",
+        lambda: forgery.records_tuples(N, schema),
+        None,  # No direct Faker equivalent
+        results,
+        "records_tuples",
+    )
+
+    # ==========================================================================
     # Summary
     # ==========================================================================
     if has_faker:

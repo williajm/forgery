@@ -15,7 +15,8 @@
 
 mod data;
 pub mod error;
-mod providers;
+/// Data generation providers.
+pub mod providers;
 mod rng;
 
 use pyo3::exceptions::PyValueError;

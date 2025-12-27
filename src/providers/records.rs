@@ -16,6 +16,7 @@ use std::fmt;
 /// Error type for schema-related errors.
 #[derive(Debug, Clone)]
 pub struct SchemaError {
+    /// The error message.
     pub message: String,
 }
 
@@ -33,24 +34,118 @@ pub enum FieldSpec {
     /// Simple type (e.g., "name", "email", "uuid")
     Simple(String),
     /// Integer range: ("int", min, max)
-    IntRange { min: i64, max: i64 },
+    IntRange {
+        /// Minimum value (inclusive).
+        min: i64,
+        /// Maximum value (inclusive).
+        max: i64,
+    },
     /// Float range: ("float", min, max)
-    FloatRange { min: f64, max: f64 },
+    FloatRange {
+        /// Minimum value (inclusive).
+        min: f64,
+        /// Maximum value (inclusive).
+        max: f64,
+    },
     /// Text with character limits: ("text", min_chars, max_chars)
-    Text { min_chars: usize, max_chars: usize },
+    Text {
+        /// Minimum number of characters.
+        min_chars: usize,
+        /// Maximum number of characters.
+        max_chars: usize,
+    },
     /// Date range: ("date", start, end)
-    DateRange { start: String, end: String },
+    DateRange {
+        /// Start date in YYYY-MM-DD format.
+        start: String,
+        /// End date in YYYY-MM-DD format.
+        end: String,
+    },
     /// Choice from options: ("choice", ["a", "b", "c"])
     Choice(Vec<String>),
+    /// Name field type.
+    Name,
+    /// First name field type.
+    FirstName,
+    /// Last name field type.
+    LastName,
+    /// Email field type.
+    Email,
+    /// Safe email field type.
+    SafeEmail,
+    /// Free email field type.
+    FreeEmail,
+    /// Phone field type.
+    Phone,
+    /// UUID field type.
+    Uuid,
+    /// Integer with default range (0-100).
+    Int,
+    /// Float with default range (0.0-1.0).
+    Float,
+    /// Date with default range.
+    Date,
+    /// DateTime field type.
+    DateTime,
+    /// Street address field type.
+    StreetAddress,
+    /// City field type.
+    City,
+    /// State field type.
+    State,
+    /// Country field type.
+    Country,
+    /// Zip code field type.
+    ZipCode,
+    /// Full address field type.
+    Address,
+    /// Company name field type.
+    Company,
+    /// Job title field type.
+    Job,
+    /// Catch phrase field type.
+    CatchPhrase,
+    /// URL field type.
+    Url,
+    /// Domain name field type.
+    DomainName,
+    /// IPv4 address field type.
+    Ipv4,
+    /// IPv6 address field type.
+    Ipv6,
+    /// MAC address field type.
+    MacAddress,
+    /// Credit card number field type.
+    CreditCard,
+    /// IBAN field type.
+    Iban,
+    /// Sentence field type.
+    Sentence,
+    /// Paragraph field type.
+    Paragraph,
+    /// Color name field type.
+    Color,
+    /// Hex color field type.
+    HexColor,
+    /// RGB color field type.
+    RgbColor,
+    /// MD5 hash field type.
+    Md5,
+    /// SHA256 hash field type.
+    Sha256,
 }
 
 /// A generated value that can be various types.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
+    /// A string value.
     String(String),
+    /// An integer value.
     Int(i64),
+    /// A floating-point value.
     Float(f64),
-    Tuple3U8(u8, u8, u8), // For RGB colors
+    /// A tuple of three u8 values (for RGB colors).
+    Tuple3U8(u8, u8, u8),
 }
 
 impl Value {
@@ -67,51 +162,46 @@ impl Value {
 
 /// Parse a simple type name into a FieldSpec.
 pub fn parse_simple_type(type_name: &str) -> Result<FieldSpec, SchemaError> {
-    let valid_types = [
-        "name",
-        "first_name",
-        "last_name",
-        "email",
-        "safe_email",
-        "free_email",
-        "uuid",
-        "int",
-        "float",
-        "phone",
-        "address",
-        "street_address",
-        "city",
-        "state",
-        "country",
-        "zip_code",
-        "company",
-        "job",
-        "catch_phrase",
-        "url",
-        "domain_name",
-        "ipv4",
-        "ipv6",
-        "mac_address",
-        "color",
-        "hex_color",
-        "rgb_color",
-        "credit_card",
-        "iban",
-        "date",
-        "datetime",
-        "md5",
-        "sha256",
-        "sentence",
-        "paragraph",
-        "text",
-    ];
-
-    if valid_types.contains(&type_name) {
-        Ok(FieldSpec::Simple(type_name.to_string()))
-    } else {
-        Err(SchemaError {
+    match type_name {
+        "name" => Ok(FieldSpec::Name),
+        "first_name" => Ok(FieldSpec::FirstName),
+        "last_name" => Ok(FieldSpec::LastName),
+        "email" => Ok(FieldSpec::Email),
+        "safe_email" => Ok(FieldSpec::SafeEmail),
+        "free_email" => Ok(FieldSpec::FreeEmail),
+        "uuid" => Ok(FieldSpec::Uuid),
+        "int" => Ok(FieldSpec::Int),
+        "float" => Ok(FieldSpec::Float),
+        "phone" => Ok(FieldSpec::Phone),
+        "address" => Ok(FieldSpec::Address),
+        "street_address" => Ok(FieldSpec::StreetAddress),
+        "city" => Ok(FieldSpec::City),
+        "state" => Ok(FieldSpec::State),
+        "country" => Ok(FieldSpec::Country),
+        "zip_code" => Ok(FieldSpec::ZipCode),
+        "company" => Ok(FieldSpec::Company),
+        "job" => Ok(FieldSpec::Job),
+        "catch_phrase" => Ok(FieldSpec::CatchPhrase),
+        "url" => Ok(FieldSpec::Url),
+        "domain_name" => Ok(FieldSpec::DomainName),
+        "ipv4" => Ok(FieldSpec::Ipv4),
+        "ipv6" => Ok(FieldSpec::Ipv6),
+        "mac_address" => Ok(FieldSpec::MacAddress),
+        "color" => Ok(FieldSpec::Color),
+        "hex_color" => Ok(FieldSpec::HexColor),
+        "rgb_color" => Ok(FieldSpec::RgbColor),
+        "credit_card" => Ok(FieldSpec::CreditCard),
+        "iban" => Ok(FieldSpec::Iban),
+        "date" => Ok(FieldSpec::Date),
+        "datetime" => Ok(FieldSpec::DateTime),
+        "md5" => Ok(FieldSpec::Md5),
+        "sha256" => Ok(FieldSpec::Sha256),
+        "sentence" => Ok(FieldSpec::Sentence),
+        "paragraph" => Ok(FieldSpec::Paragraph),
+        "text" => Ok(FieldSpec::Simple("text".to_string())),
+        _ => Err(SchemaError {
             message: format!("Unknown type: {}", type_name),
-        })
+        }),
     }
 }
 
@@ -163,6 +253,68 @@ pub fn generate_value(rng: &mut ForgeryRng, spec: &FieldSpec) -> Result<Value, S
             let val = rng.choose(options).clone();
             Ok(Value::String(val))
         }
+        // Direct type variants
+        FieldSpec::Name => Ok(Value::String(names::generate_name(rng))),
+        FieldSpec::FirstName => Ok(Value::String(names::generate_first_name(rng))),
+        FieldSpec::LastName => Ok(Value::String(names::generate_last_name(rng))),
+        FieldSpec::Email => Ok(Value::String(internet::generate_email(rng))),
+        FieldSpec::SafeEmail => Ok(Value::String(internet::generate_safe_email(rng))),
+        FieldSpec::FreeEmail => Ok(Value::String(internet::generate_free_email(rng))),
+        FieldSpec::Phone => Ok(Value::String(phone::generate_phone_number(rng))),
+        FieldSpec::Uuid => Ok(Value::String(identifiers::generate_uuid(rng))),
+        FieldSpec::Int => Ok(Value::Int(
+            numbers::generate_integer(rng, 0, 1000).map_err(|e| SchemaError {
+                message: e.to_string(),
+            })?,
+        )),
+        FieldSpec::Float => Ok(Value::Float(
+            numbers::generate_float(rng, 0.0, 1.0).map_err(|e| SchemaError {
+                message: e.to_string(),
+            })?,
+        )),
+        FieldSpec::Date => {
+            let val = datetime::generate_date(rng, "2000-01-01", "2030-12-31").map_err(|e| {
+                SchemaError {
+                    message: e.to_string(),
+                }
+            })?;
+            Ok(Value::String(val))
+        }
+        FieldSpec::DateTime => {
+            let val =
+                datetime::generate_datetime(rng, "2000-01-01", "2030-12-31").map_err(|e| {
+                    SchemaError {
+                        message: e.to_string(),
+                    }
+                })?;
+            Ok(Value::String(val))
+        }
+        FieldSpec::StreetAddress => Ok(Value::String(address::generate_street_address(rng))),
+        FieldSpec::City => Ok(Value::String(address::generate_city(rng))),
+        FieldSpec::State => Ok(Value::String(address::generate_state(rng))),
+        FieldSpec::Country => Ok(Value::String(address::generate_country(rng))),
+        FieldSpec::ZipCode => Ok(Value::String(address::generate_zip_code(rng))),
+        FieldSpec::Address => Ok(Value::String(address::generate_address(rng))),
+        FieldSpec::Company => Ok(Value::String(company::generate_company(rng))),
+        FieldSpec::Job => Ok(Value::String(company::generate_job(rng))),
+        FieldSpec::CatchPhrase => Ok(Value::String(company::generate_catch_phrase(rng))),
+        FieldSpec::Url => Ok(Value::String(network::generate_url(rng))),
+        FieldSpec::DomainName => Ok(Value::String(network::generate_domain_name(rng))),
+        FieldSpec::Ipv4 => Ok(Value::String(network::generate_ipv4(rng))),
+        FieldSpec::Ipv6 => Ok(Value::String(network::generate_ipv6(rng))),
+        FieldSpec::MacAddress => Ok(Value::String(network::generate_mac_address(rng))),
+        FieldSpec::CreditCard => Ok(Value::String(finance::generate_credit_card(rng))),
+        FieldSpec::Iban => Ok(Value::String(finance::generate_iban(rng))),
+        FieldSpec::Sentence => Ok(Value::String(text::generate_sentence(rng, 10))),
+        FieldSpec::Paragraph => Ok(Value::String(text::generate_paragraph(rng, 5))),
+        FieldSpec::Color => Ok(Value::String(colors::generate_color(rng))),
+        FieldSpec::HexColor => Ok(Value::String(colors::generate_hex_color(rng))),
+        FieldSpec::RgbColor => {
+            let (r, g, b) = colors::generate_rgb_color(rng);
+            Ok(Value::Tuple3U8(r, g, b))
+        }
+        FieldSpec::Md5 => Ok(Value::String(identifiers::generate_md5(rng))),
+        FieldSpec::Sha256 => Ok(Value::String(identifiers::generate_sha256(rng))),
     }
 }
 
