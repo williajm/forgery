@@ -567,21 +567,8 @@ pub fn generate_records(
     n: usize,
     schema: &BTreeMap<String, FieldSpec>,
 ) -> Result<Vec<BTreeMap<String, Value>>, SchemaError> {
-    // Validate schema upfront (even when n=0)
-    validate_schema(schema)?;
-
-    let mut records = Vec::with_capacity(n);
-
-    for _ in 0..n {
-        let mut record = BTreeMap::new();
-        for (field_name, spec) in schema {
-            let value = generate_value(rng, locale, spec)?;
-            record.insert(field_name.clone(), value);
-        }
-        records.push(record);
-    }
-
-    Ok(records)
+    // Delegate to the custom-aware version with empty providers map
+    generate_records_with_custom(rng, locale, n, schema, &HashMap::new())
 }
 
 /// Generate records as tuples based on a schema.
@@ -595,55 +582,8 @@ pub fn generate_records_tuples(
     schema: &BTreeMap<String, FieldSpec>,
     field_order: &[String],
 ) -> Result<Vec<Vec<Value>>, SchemaError> {
-    // Validate schema upfront (even when n=0)
-    validate_schema(schema)?;
-
-    // Validate field_order: check for duplicates
-    let mut seen = std::collections::HashSet::new();
-    for field in field_order {
-        if !seen.insert(field) {
-            return Err(SchemaError {
-                message: format!("Duplicate field in field_order: '{}'", field),
-            });
-        }
-    }
-
-    // Validate field_order: all fields must exist in schema
-    for field in field_order {
-        if !schema.contains_key(field) {
-            return Err(SchemaError {
-                message: format!("Field '{}' not in schema", field),
-            });
-        }
-    }
-
-    // Validate field_order: must cover all schema fields
-    if field_order.len() != schema.len() {
-        let missing: Vec<_> = schema.keys().filter(|k| !field_order.contains(k)).collect();
-        return Err(SchemaError {
-            message: format!(
-                "field_order must cover all schema fields. Missing: {:?}",
-                missing
-            ),
-        });
-    }
-
-    let mut records = Vec::with_capacity(n);
-
-    for _ in 0..n {
-        let mut record = Vec::with_capacity(field_order.len());
-        for field_name in field_order {
-            // Field existence is validated at the start of this function
-            let spec = schema
-                .get(field_name)
-                .expect("field_name was validated to exist in schema");
-            let value = generate_value(rng, locale, spec)?;
-            record.push(value);
-        }
-        records.push(record);
-    }
-
-    Ok(records)
+    // Delegate to the custom-aware version with empty providers map
+    generate_records_tuples_with_custom(rng, locale, n, schema, field_order, &HashMap::new())
 }
 
 /// Generate records based on a schema, with custom provider support.
