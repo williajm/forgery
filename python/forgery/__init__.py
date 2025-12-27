@@ -3,6 +3,15 @@
 A high-performance fake data generation library for Python, powered by Rust.
 Designed to be 50-100x faster than Faker for batch operations.
 
+Supported Locales:
+    - en_US: English (United States) - default
+    - en_GB: English (United Kingdom)
+    - de_DE: German (Germany)
+    - fr_FR: French (France)
+    - es_ES: Spanish (Spain)
+    - it_IT: Italian (Italy)
+    - ja_JP: Japanese (Japan)
+
 Example:
     >>> from forgery import fake
     >>> fake.seed(42)
@@ -13,6 +22,10 @@ Example:
     >>> my_fake = Faker()
     >>> my_fake.seed(123)
     >>> my_fake.emails(100)
+
+    >>> # Using a different locale
+    >>> german_fake = Faker("de_DE")
+    >>> german_fake.names(10)  # German names
 """
 
 from forgery._forgery import Faker

@@ -13,8 +13,11 @@
 
 #![deny(missing_docs)]
 
-mod data;
+/// Embedded locale data for generation.
+pub mod data;
 pub mod error;
+/// Locale definitions and errors.
+pub mod locale;
 /// Data generation providers.
 pub mod providers;
 mod rng;
@@ -26,14 +29,14 @@ use pyo3::IntoPyObjectExt;
 use rng::ForgeryRng;
 use std::collections::BTreeMap;
 
+use locale::{Locale, LocaleError};
+use std::str::FromStr;
+
 /// Maximum batch size to prevent memory exhaustion.
 ///
 /// This limit is set to 10 million items, which should handle most
 /// reasonable use cases while preventing accidental memory exhaustion.
 pub const MAX_BATCH_SIZE: usize = 10_000_000;
-
-/// The only currently supported locale.
-pub const SUPPORTED_LOCALE: &str = "en_US";
 
 /// Error type for batch size validation.
 #[derive(Debug, Clone)]
@@ -56,28 +59,6 @@ impl std::fmt::Display for BatchSizeError {
 
 impl std::error::Error for BatchSizeError {}
 
-/// Error type for unsupported locale.
-#[derive(Debug, Clone)]
-pub struct LocaleError {
-    /// The requested locale.
-    pub requested: String,
-    /// The supported locales.
-    pub supported: Vec<String>,
-}
-
-impl std::fmt::Display for LocaleError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "unsupported locale '{}', supported locales: {}",
-            self.requested,
-            self.supported.join(", ")
-        )
-    }
-}
-
-impl std::error::Error for LocaleError {}
-
 /// Validate that a batch size is within acceptable limits.
 ///
 /// # Errors
@@ -94,30 +75,34 @@ pub fn validate_batch_size(n: usize) -> Result<(), BatchSizeError> {
     Ok(())
 }
 
-/// Validate that a locale is supported.
+/// Validate that a locale is supported and parse it.
 ///
 /// # Errors
 ///
 /// Returns `LocaleError` if the locale is not supported.
 #[inline]
-pub fn validate_locale(locale: &str) -> Result<(), LocaleError> {
-    if locale != SUPPORTED_LOCALE {
-        return Err(LocaleError {
-            requested: locale.to_string(),
-            supported: vec![SUPPORTED_LOCALE.to_string()],
-        });
-    }
-    Ok(())
+pub fn validate_locale(locale: &str) -> Result<Locale, LocaleError> {
+    Locale::from_str(locale)
 }
 
 /// A fake data generator with its own random state.
 ///
 /// Each instance maintains independent RNG state, allowing for deterministic
 /// generation when seeded. The default locale is "en_US".
+///
+/// # Supported Locales
+///
+/// - `en_US` - English (United States)
+/// - `de_DE` - German (Germany)
+/// - `fr_FR` - French (France)
+/// - `es_ES` - Spanish (Spain)
+/// - `it_IT` - Italian (Italy)
+/// - `ja_JP` - Japanese (Japan)
+/// - `en_GB` - English (United Kingdom)
 #[pyclass]
 pub struct Faker {
     rng: ForgeryRng,
-    locale: String,
+    locale: Locale,
 }
 
 // Public Rust API - these methods are callable from Rust code (including benchmarks)
@@ -126,16 +111,26 @@ impl Faker {
     ///
     /// # Arguments
     ///
-    /// * `locale` - The locale for generated data (currently only "en_US" is supported)
+    /// * `locale` - The locale for generated data
     ///
     /// # Errors
     ///
     /// Returns `LocaleError` if the locale is not supported.
+    ///
+    /// # Supported Locales
+    ///
+    /// - `en_US` - English (United States)
+    /// - `de_DE` - German (Germany)
+    /// - `fr_FR` - French (France)
+    /// - `es_ES` - Spanish (Spain)
+    /// - `it_IT` - Italian (Italy)
+    /// - `ja_JP` - Japanese (Japan)
+    /// - `en_GB` - English (United Kingdom)
     pub fn new(locale: &str) -> Result<Self, LocaleError> {
-        validate_locale(locale)?;
+        let parsed_locale = validate_locale(locale)?;
         Ok(Self {
             rng: ForgeryRng::new(),
-            locale: locale.to_string(),
+            locale: parsed_locale,
         })
     }
 
@@ -143,13 +138,18 @@ impl Faker {
     pub fn new_default() -> Self {
         Self {
             rng: ForgeryRng::new(),
-            locale: SUPPORTED_LOCALE.to_string(),
+            locale: Locale::default(),
         }
     }
 
     /// Get the locale for this Faker instance.
     pub fn locale(&self) -> &str {
-        &self.locale
+        self.locale.as_str()
+    }
+
+    /// Get the locale enum for this Faker instance.
+    pub fn locale_enum(&self) -> Locale {
+        self.locale
     }
 
     /// Seed the random number generator for deterministic output.
@@ -172,7 +172,11 @@ impl Faker {
     /// Returns `BatchSizeError` if `n` exceeds the maximum batch size.
     pub fn names(&mut self, n: usize) -> Result<Vec<String>, BatchSizeError> {
         validate_batch_size(n)?;
-        Ok(providers::names::generate_names(&mut self.rng, n))
+        Ok(providers::names::generate_names(
+            &mut self.rng,
+            self.locale,
+            n,
+        ))
     }
 
     /// Generate a batch of random first names.
@@ -182,7 +186,11 @@ impl Faker {
     /// Returns `BatchSizeError` if `n` exceeds the maximum batch size.
     pub fn first_names(&mut self, n: usize) -> Result<Vec<String>, BatchSizeError> {
         validate_batch_size(n)?;
-        Ok(providers::names::generate_first_names(&mut self.rng, n))
+        Ok(providers::names::generate_first_names(
+            &mut self.rng,
+            self.locale,
+            n,
+        ))
     }
 
     /// Generate a batch of random last names.
@@ -192,22 +200,26 @@ impl Faker {
     /// Returns `BatchSizeError` if `n` exceeds the maximum batch size.
     pub fn last_names(&mut self, n: usize) -> Result<Vec<String>, BatchSizeError> {
         validate_batch_size(n)?;
-        Ok(providers::names::generate_last_names(&mut self.rng, n))
+        Ok(providers::names::generate_last_names(
+            &mut self.rng,
+            self.locale,
+            n,
+        ))
     }
 
     /// Generate a single random full name.
     pub fn name(&mut self) -> String {
-        providers::names::generate_name(&mut self.rng)
+        providers::names::generate_name(&mut self.rng, self.locale)
     }
 
     /// Generate a single random first name.
     pub fn first_name(&mut self) -> String {
-        providers::names::generate_first_name(&mut self.rng)
+        providers::names::generate_first_name(&mut self.rng, self.locale)
     }
 
     /// Generate a single random last name.
     pub fn last_name(&mut self) -> String {
-        providers::names::generate_last_name(&mut self.rng)
+        providers::names::generate_last_name(&mut self.rng, self.locale)
     }
 
     /// Generate a batch of random email addresses.
@@ -217,12 +229,16 @@ impl Faker {
     /// Returns `BatchSizeError` if `n` exceeds the maximum batch size.
     pub fn emails(&mut self, n: usize) -> Result<Vec<String>, BatchSizeError> {
         validate_batch_size(n)?;
-        Ok(providers::internet::generate_emails(&mut self.rng, n))
+        Ok(providers::internet::generate_emails(
+            &mut self.rng,
+            self.locale,
+            n,
+        ))
     }
 
     /// Generate a single random email address.
     pub fn email(&mut self) -> String {
-        providers::internet::generate_email(&mut self.rng)
+        providers::internet::generate_email(&mut self.rng, self.locale)
     }
 
     /// Generate a batch of random integers within a range.
@@ -333,12 +349,16 @@ impl Faker {
     /// Generate a batch of random color names.
     pub fn colors(&mut self, n: usize) -> Result<Vec<String>, BatchSizeError> {
         validate_batch_size(n)?;
-        Ok(providers::colors::generate_colors(&mut self.rng, n))
+        Ok(providers::colors::generate_colors(
+            &mut self.rng,
+            self.locale,
+            n,
+        ))
     }
 
     /// Generate a single random color name.
     pub fn color(&mut self) -> String {
-        providers::colors::generate_color(&mut self.rng)
+        providers::colors::generate_color(&mut self.rng, self.locale)
     }
 
     /// Generate a batch of random hex colors.
@@ -451,6 +471,7 @@ impl Faker {
         validate_batch_size(n)?;
         Ok(providers::text::generate_sentences(
             &mut self.rng,
+            self.locale,
             n,
             word_count,
         ))
@@ -458,7 +479,7 @@ impl Faker {
 
     /// Generate a single random sentence.
     pub fn sentence(&mut self, word_count: usize) -> String {
-        providers::text::generate_sentence(&mut self.rng, word_count)
+        providers::text::generate_sentence(&mut self.rng, self.locale, word_count)
     }
 
     /// Generate a batch of random paragraphs.
@@ -470,6 +491,7 @@ impl Faker {
         validate_batch_size(n)?;
         Ok(providers::text::generate_paragraphs(
             &mut self.rng,
+            self.locale,
             n,
             sentence_count,
         ))
@@ -477,7 +499,7 @@ impl Faker {
 
     /// Generate a single random paragraph.
     pub fn paragraph(&mut self, sentence_count: usize) -> String {
-        providers::text::generate_paragraph(&mut self.rng, sentence_count)
+        providers::text::generate_paragraph(&mut self.rng, self.locale, sentence_count)
     }
 
     /// Generate a batch of random text blocks.
@@ -490,6 +512,7 @@ impl Faker {
         validate_batch_size(n)?;
         Ok(providers::text::generate_texts(
             &mut self.rng,
+            self.locale,
             n,
             min_chars,
             max_chars,
@@ -498,7 +521,7 @@ impl Faker {
 
     /// Generate a single random text block.
     pub fn text(&mut self, min_chars: usize, max_chars: usize) -> String {
-        providers::text::generate_text(&mut self.rng, min_chars, max_chars)
+        providers::text::generate_text(&mut self.rng, self.locale, min_chars, max_chars)
     }
 
     // === Address Generation ===
@@ -508,35 +531,44 @@ impl Faker {
         validate_batch_size(n)?;
         Ok(providers::address::generate_street_addresses(
             &mut self.rng,
+            self.locale,
             n,
         ))
     }
 
     /// Generate a single random street address.
     pub fn street_address(&mut self) -> String {
-        providers::address::generate_street_address(&mut self.rng)
+        providers::address::generate_street_address(&mut self.rng, self.locale)
     }
 
     /// Generate a batch of random cities.
     pub fn cities(&mut self, n: usize) -> Result<Vec<String>, BatchSizeError> {
         validate_batch_size(n)?;
-        Ok(providers::address::generate_cities(&mut self.rng, n))
+        Ok(providers::address::generate_cities(
+            &mut self.rng,
+            self.locale,
+            n,
+        ))
     }
 
     /// Generate a single random city.
     pub fn city(&mut self) -> String {
-        providers::address::generate_city(&mut self.rng)
+        providers::address::generate_city(&mut self.rng, self.locale)
     }
 
     /// Generate a batch of random states.
     pub fn states(&mut self, n: usize) -> Result<Vec<String>, BatchSizeError> {
         validate_batch_size(n)?;
-        Ok(providers::address::generate_states(&mut self.rng, n))
+        Ok(providers::address::generate_states(
+            &mut self.rng,
+            self.locale,
+            n,
+        ))
     }
 
     /// Generate a single random state.
     pub fn state(&mut self) -> String {
-        providers::address::generate_state(&mut self.rng)
+        providers::address::generate_state(&mut self.rng, self.locale)
     }
 
     /// Generate a batch of random countries.
@@ -553,23 +585,31 @@ impl Faker {
     /// Generate a batch of random zip codes.
     pub fn zip_codes(&mut self, n: usize) -> Result<Vec<String>, BatchSizeError> {
         validate_batch_size(n)?;
-        Ok(providers::address::generate_zip_codes(&mut self.rng, n))
+        Ok(providers::address::generate_zip_codes(
+            &mut self.rng,
+            self.locale,
+            n,
+        ))
     }
 
     /// Generate a single random zip code.
     pub fn zip_code(&mut self) -> String {
-        providers::address::generate_zip_code(&mut self.rng)
+        providers::address::generate_zip_code(&mut self.rng, self.locale)
     }
 
     /// Generate a batch of random full addresses.
     pub fn addresses(&mut self, n: usize) -> Result<Vec<String>, BatchSizeError> {
         validate_batch_size(n)?;
-        Ok(providers::address::generate_addresses(&mut self.rng, n))
+        Ok(providers::address::generate_addresses(
+            &mut self.rng,
+            self.locale,
+            n,
+        ))
     }
 
     /// Generate a single random full address.
     pub fn address(&mut self) -> String {
-        providers::address::generate_address(&mut self.rng)
+        providers::address::generate_address(&mut self.rng, self.locale)
     }
 
     // === Phone Generation ===
@@ -577,12 +617,16 @@ impl Faker {
     /// Generate a batch of random phone numbers.
     pub fn phone_numbers(&mut self, n: usize) -> Result<Vec<String>, BatchSizeError> {
         validate_batch_size(n)?;
-        Ok(providers::phone::generate_phone_numbers(&mut self.rng, n))
+        Ok(providers::phone::generate_phone_numbers(
+            &mut self.rng,
+            self.locale,
+            n,
+        ))
     }
 
     /// Generate a single random phone number.
     pub fn phone_number(&mut self) -> String {
-        providers::phone::generate_phone_number(&mut self.rng)
+        providers::phone::generate_phone_number(&mut self.rng, self.locale)
     }
 
     // === Company Generation ===
@@ -590,34 +634,46 @@ impl Faker {
     /// Generate a batch of random company names.
     pub fn companies(&mut self, n: usize) -> Result<Vec<String>, BatchSizeError> {
         validate_batch_size(n)?;
-        Ok(providers::company::generate_companies(&mut self.rng, n))
+        Ok(providers::company::generate_companies(
+            &mut self.rng,
+            self.locale,
+            n,
+        ))
     }
 
     /// Generate a single random company name.
     pub fn company(&mut self) -> String {
-        providers::company::generate_company(&mut self.rng)
+        providers::company::generate_company(&mut self.rng, self.locale)
     }
 
     /// Generate a batch of random job titles.
     pub fn jobs(&mut self, n: usize) -> Result<Vec<String>, BatchSizeError> {
         validate_batch_size(n)?;
-        Ok(providers::company::generate_jobs(&mut self.rng, n))
+        Ok(providers::company::generate_jobs(
+            &mut self.rng,
+            self.locale,
+            n,
+        ))
     }
 
     /// Generate a single random job title.
     pub fn job(&mut self) -> String {
-        providers::company::generate_job(&mut self.rng)
+        providers::company::generate_job(&mut self.rng, self.locale)
     }
 
     /// Generate a batch of random catch phrases.
     pub fn catch_phrases(&mut self, n: usize) -> Result<Vec<String>, BatchSizeError> {
         validate_batch_size(n)?;
-        Ok(providers::company::generate_catch_phrases(&mut self.rng, n))
+        Ok(providers::company::generate_catch_phrases(
+            &mut self.rng,
+            self.locale,
+            n,
+        ))
     }
 
     /// Generate a single random catch phrase.
     pub fn catch_phrase(&mut self) -> String {
-        providers::company::generate_catch_phrase(&mut self.rng)
+        providers::company::generate_catch_phrase(&mut self.rng, self.locale)
     }
 
     // === Network Generation ===
@@ -682,23 +738,31 @@ impl Faker {
     /// Generate a batch of random safe email addresses (example.com/org/net).
     pub fn safe_emails(&mut self, n: usize) -> Result<Vec<String>, BatchSizeError> {
         validate_batch_size(n)?;
-        Ok(providers::internet::generate_safe_emails(&mut self.rng, n))
+        Ok(providers::internet::generate_safe_emails(
+            &mut self.rng,
+            self.locale,
+            n,
+        ))
     }
 
     /// Generate a single random safe email address.
     pub fn safe_email(&mut self) -> String {
-        providers::internet::generate_safe_email(&mut self.rng)
+        providers::internet::generate_safe_email(&mut self.rng, self.locale)
     }
 
     /// Generate a batch of random free email addresses (gmail.com, etc.).
     pub fn free_emails(&mut self, n: usize) -> Result<Vec<String>, BatchSizeError> {
         validate_batch_size(n)?;
-        Ok(providers::internet::generate_free_emails(&mut self.rng, n))
+        Ok(providers::internet::generate_free_emails(
+            &mut self.rng,
+            self.locale,
+            n,
+        ))
     }
 
     /// Generate a single random free email address.
     pub fn free_email(&mut self) -> String {
-        providers::internet::generate_free_email(&mut self.rng)
+        providers::internet::generate_free_email(&mut self.rng, self.locale)
     }
 
     // === Finance Generation ===
@@ -743,6 +807,7 @@ impl Faker {
         validate_batch_size(n)?;
         Ok(providers::records::generate_records(
             &mut self.rng,
+            self.locale,
             n,
             schema,
         )?)
@@ -765,6 +830,7 @@ impl Faker {
         validate_batch_size(n)?;
         Ok(providers::records::generate_records_tuples(
             &mut self.rng,
+            self.locale,
             n,
             schema,
             field_order,
@@ -1321,8 +1387,9 @@ impl Faker {
         let rust_schema = parse_py_schema(schema)?;
         validate_batch_size(n).map_err(|e| PyValueError::new_err(e.to_string()))?;
 
-        let records = providers::records::generate_records(&mut self.rng, n, &rust_schema)
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let records =
+            providers::records::generate_records(&mut self.rng, self.locale, n, &rust_schema)
+                .map_err(|e| PyValueError::new_err(e.to_string()))?;
 
         records
             .into_iter()
@@ -1355,6 +1422,7 @@ impl Faker {
 
         let records = providers::records::generate_records_tuples(
             &mut self.rng,
+            self.locale,
             n,
             &rust_schema,
             &field_order,
@@ -1534,11 +1602,11 @@ mod tests {
 
     #[test]
     fn test_faker_creation_invalid_locale() {
-        let result = Faker::new("fr_FR");
+        let result = Faker::new("xx_YY");
         assert!(result.is_err());
         if let Err(err) = result {
             assert!(err.to_string().contains("unsupported locale"));
-            assert!(err.to_string().contains("fr_FR"));
+            assert!(err.to_string().contains("xx_YY"));
         }
     }
 
@@ -1590,7 +1658,13 @@ mod tests {
     #[test]
     fn test_validate_locale() {
         assert!(validate_locale("en_US").is_ok());
-        assert!(validate_locale("fr_FR").is_err());
+        assert!(validate_locale("de_DE").is_ok());
+        assert!(validate_locale("fr_FR").is_ok());
+        assert!(validate_locale("es_ES").is_ok());
+        assert!(validate_locale("it_IT").is_ok());
+        assert!(validate_locale("ja_JP").is_ok());
+        assert!(validate_locale("en_GB").is_ok());
+        assert!(validate_locale("xx_YY").is_err());
         assert!(validate_locale("").is_err());
     }
 }

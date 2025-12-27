@@ -2,39 +2,34 @@
 //!
 //! Generates color names, hex colors, and RGB tuples.
 
-use crate::data::en_us::COLOR_NAMES;
+use crate::data::get_locale_data;
+use crate::locale::Locale;
 use crate::rng::ForgeryRng;
 
 /// Generate a batch of random color names.
-///
-/// # Arguments
-///
-/// * `rng` - The random number generator to use
-/// * `n` - Number of colors to generate
-pub fn generate_colors(rng: &mut ForgeryRng, n: usize) -> Vec<String> {
+pub fn generate_colors(rng: &mut ForgeryRng, locale: Locale, n: usize) -> Vec<String> {
     let mut colors = Vec::with_capacity(n);
     for _ in 0..n {
-        colors.push(generate_color(rng));
+        colors.push(generate_color(rng, locale));
     }
     colors
 }
 
 /// Generate a single random color name.
-///
-/// More efficient than `generate_colors(rng, 1)` as it avoids Vec allocation.
 #[inline]
-pub fn generate_color(rng: &mut ForgeryRng) -> String {
-    rng.choose(COLOR_NAMES).to_string()
+pub fn generate_color(rng: &mut ForgeryRng, locale: Locale) -> String {
+    let data = get_locale_data(locale);
+    let color_names = data.color_names().unwrap_or(&[]);
+    if color_names.is_empty() {
+        "Blue".to_string()
+    } else {
+        rng.choose(color_names).to_string()
+    }
 }
 
 /// Generate a batch of random hex color codes.
 ///
 /// Returns colors in the format `#RRGGBB` (lowercase).
-///
-/// # Arguments
-///
-/// * `rng` - The random number generator to use
-/// * `n` - Number of hex colors to generate
 pub fn generate_hex_colors(rng: &mut ForgeryRng, n: usize) -> Vec<String> {
     let mut colors = Vec::with_capacity(n);
     for _ in 0..n {
@@ -57,11 +52,6 @@ pub fn generate_hex_color(rng: &mut ForgeryRng) -> String {
 /// Generate a batch of random RGB color tuples.
 ///
 /// Returns colors as `(r, g, b)` tuples where each component is 0-255.
-///
-/// # Arguments
-///
-/// * `rng` - The random number generator to use
-/// * `n` - Number of RGB colors to generate
 pub fn generate_rgb_colors(rng: &mut ForgeryRng, n: usize) -> Vec<(u8, u8, u8)> {
     let mut colors = Vec::with_capacity(n);
     for _ in 0..n {
@@ -84,14 +74,14 @@ pub fn generate_rgb_color(rng: &mut ForgeryRng) -> (u8, u8, u8) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::data::en_us::COLOR_NAMES;
 
-    // Color name tests
     #[test]
     fn test_generate_colors_count() {
         let mut rng = ForgeryRng::new();
         rng.seed(42);
 
-        let colors = generate_colors(&mut rng, 100);
+        let colors = generate_colors(&mut rng, Locale::EnUS, 100);
         assert_eq!(colors.len(), 100);
     }
 
@@ -100,7 +90,7 @@ mod tests {
         let mut rng = ForgeryRng::new();
         rng.seed(42);
 
-        let colors = generate_colors(&mut rng, 100);
+        let colors = generate_colors(&mut rng, Locale::EnUS, 100);
         for color in &colors {
             assert!(
                 COLOR_NAMES.contains(&color.as_str()),
@@ -118,8 +108,8 @@ mod tests {
         rng1.seed(12345);
         rng2.seed(12345);
 
-        let colors1 = generate_colors(&mut rng1, 100);
-        let colors2 = generate_colors(&mut rng2, 100);
+        let colors1 = generate_colors(&mut rng1, Locale::EnUS, 100);
+        let colors2 = generate_colors(&mut rng2, Locale::EnUS, 100);
 
         assert_eq!(colors1, colors2);
     }
@@ -127,7 +117,7 @@ mod tests {
     #[test]
     fn test_color_empty_batch() {
         let mut rng = ForgeryRng::new();
-        let colors = generate_colors(&mut rng, 0);
+        let colors = generate_colors(&mut rng, Locale::EnUS, 0);
         assert!(colors.is_empty());
     }
 
@@ -136,12 +126,11 @@ mod tests {
         let mut rng = ForgeryRng::new();
         rng.seed(42);
 
-        let color = generate_color(&mut rng);
+        let color = generate_color(&mut rng, Locale::EnUS);
         assert!(!color.is_empty());
         assert!(COLOR_NAMES.contains(&color.as_str()));
     }
 
-    // Hex color tests
     #[test]
     fn test_generate_hex_colors_count() {
         let mut rng = ForgeryRng::new();
@@ -158,7 +147,6 @@ mod tests {
 
         let colors = generate_hex_colors(&mut rng, 100);
         for color in &colors {
-            // Format: #RRGGBB
             assert_eq!(
                 color.len(),
                 7,
@@ -171,7 +159,6 @@ mod tests {
                 color
             );
 
-            // All characters after # should be hex
             for c in color[1..].chars() {
                 assert!(c.is_ascii_hexdigit(), "Should be hex digit: {}", color);
                 if c.is_alphabetic() {
@@ -212,7 +199,6 @@ mod tests {
         assert!(color.starts_with('#'));
     }
 
-    // RGB color tests
     #[test]
     fn test_generate_rgb_colors_count() {
         let mut rng = ForgeryRng::new();
@@ -228,7 +214,6 @@ mod tests {
         rng.seed(42);
 
         let colors = generate_rgb_colors(&mut rng, 1000);
-        // Verify we get the requested number of colors
         assert_eq!(colors.len(), 1000);
     }
 
@@ -258,13 +243,11 @@ mod tests {
         let mut rng = ForgeryRng::new();
         rng.seed(42);
 
-        // Just verify the function returns a valid tuple (u8 values are always 0-255)
         let (_r, _g, _b) = generate_rgb_color(&mut rng);
     }
 
     #[test]
     fn test_rgb_variety() {
-        // Test that we get a variety of values, not just 0 or 255
         let mut rng = ForgeryRng::new();
         rng.seed(42);
 
@@ -287,8 +270,8 @@ mod tests {
         rng1.seed(1);
         rng2.seed(2);
 
-        let colors1 = generate_colors(&mut rng1, 100);
-        let colors2 = generate_colors(&mut rng2, 100);
+        let colors1 = generate_colors(&mut rng1, Locale::EnUS, 100);
+        let colors2 = generate_colors(&mut rng2, Locale::EnUS, 100);
 
         assert_ne!(
             colors1, colors2,
@@ -312,37 +295,58 @@ mod tests {
             "Different seeds should produce different hex colors"
         );
     }
+
+    #[test]
+    fn test_all_locales_generate_color() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        for locale in [
+            Locale::EnUS,
+            Locale::EnGB,
+            Locale::DeDE,
+            Locale::FrFR,
+            Locale::EsES,
+            Locale::ItIT,
+            Locale::JaJP,
+        ] {
+            let color = generate_color(&mut rng, locale);
+            assert!(
+                !color.is_empty(),
+                "Color should not be empty for {:?}",
+                locale
+            );
+        }
+    }
 }
 
 #[cfg(test)]
 mod proptest_tests {
     use super::*;
+    use crate::data::en_us::COLOR_NAMES;
     use proptest::prelude::*;
 
     proptest! {
-        /// Property: color batch size is always respected
         #[test]
         fn prop_color_batch_size_respected(n in 0usize..1000) {
             let mut rng = ForgeryRng::new();
             rng.seed(42);
 
-            let colors = generate_colors(&mut rng, n);
+            let colors = generate_colors(&mut rng, Locale::EnUS, n);
             prop_assert_eq!(colors.len(), n);
         }
 
-        /// Property: all colors come from the data array
         #[test]
         fn prop_color_from_data(n in 1usize..100) {
             let mut rng = ForgeryRng::new();
             rng.seed(42);
 
-            let colors = generate_colors(&mut rng, n);
+            let colors = generate_colors(&mut rng, Locale::EnUS, n);
             for color in colors {
                 prop_assert!(COLOR_NAMES.contains(&color.as_str()));
             }
         }
 
-        /// Property: hex color batch size is always respected
         #[test]
         fn prop_hex_color_batch_size_respected(n in 0usize..1000) {
             let mut rng = ForgeryRng::new();
@@ -352,7 +356,6 @@ mod proptest_tests {
             prop_assert_eq!(colors.len(), n);
         }
 
-        /// Property: all hex colors have correct format
         #[test]
         fn prop_hex_color_format(n in 1usize..100) {
             let mut rng = ForgeryRng::new();
@@ -368,7 +371,6 @@ mod proptest_tests {
             }
         }
 
-        /// Property: RGB color batch size is always respected
         #[test]
         fn prop_rgb_color_batch_size_respected(n in 0usize..1000) {
             let mut rng = ForgeryRng::new();
@@ -378,7 +380,6 @@ mod proptest_tests {
             prop_assert_eq!(colors.len(), n);
         }
 
-        /// Property: color same seed produces same output
         #[test]
         fn prop_color_seed_determinism(seed_val in any::<u64>(), n in 1usize..100) {
             let mut rng1 = ForgeryRng::new();
@@ -387,13 +388,12 @@ mod proptest_tests {
             rng1.seed(seed_val);
             rng2.seed(seed_val);
 
-            let colors1 = generate_colors(&mut rng1, n);
-            let colors2 = generate_colors(&mut rng2, n);
+            let colors1 = generate_colors(&mut rng1, Locale::EnUS, n);
+            let colors2 = generate_colors(&mut rng2, Locale::EnUS, n);
 
             prop_assert_eq!(colors1, colors2);
         }
 
-        /// Property: hex color same seed produces same output
         #[test]
         fn prop_hex_color_seed_determinism(seed_val in any::<u64>(), n in 1usize..100) {
             let mut rng1 = ForgeryRng::new();
@@ -408,7 +408,6 @@ mod proptest_tests {
             prop_assert_eq!(colors1, colors2);
         }
 
-        /// Property: RGB color same seed produces same output
         #[test]
         fn prop_rgb_color_seed_determinism(seed_val in any::<u64>(), n in 1usize..100) {
             let mut rng1 = ForgeryRng::new();

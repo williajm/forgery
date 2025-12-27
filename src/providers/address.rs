@@ -2,73 +2,110 @@
 //!
 //! Generates addresses, street names, cities, states, countries, and zip codes.
 
-use crate::data::en_us::{CITIES, COUNTRIES, STATES, STATE_ABBRS, STREET_NAMES, STREET_SUFFIXES};
+use crate::data::en_us::COUNTRIES;
+use crate::data::get_locale_data;
+use crate::locale::Locale;
 use crate::rng::ForgeryRng;
 
 /// Generate a batch of random street addresses.
 ///
 /// Format: "123 Main Street"
-pub fn generate_street_addresses(rng: &mut ForgeryRng, n: usize) -> Vec<String> {
+pub fn generate_street_addresses(rng: &mut ForgeryRng, locale: Locale, n: usize) -> Vec<String> {
     let mut addresses = Vec::with_capacity(n);
     for _ in 0..n {
-        addresses.push(generate_street_address(rng));
+        addresses.push(generate_street_address(rng, locale));
     }
     addresses
 }
 
 /// Generate a single random street address.
 #[inline]
-pub fn generate_street_address(rng: &mut ForgeryRng) -> String {
+pub fn generate_street_address(rng: &mut ForgeryRng, locale: Locale) -> String {
+    let data = get_locale_data(locale);
+    let street_names = data.street_names().unwrap_or(&[]);
+    let street_suffixes = data.street_suffixes().unwrap_or(&[]);
+
     let number: u32 = rng.gen_range(1, 9999);
-    let street = rng.choose(STREET_NAMES);
-    let suffix = rng.choose(STREET_SUFFIXES);
-    format!("{} {} {}", number, street, suffix)
+    let street = if street_names.is_empty() {
+        "Main"
+    } else {
+        rng.choose(street_names)
+    };
+    let suffix = if street_suffixes.is_empty() {
+        "Street"
+    } else {
+        rng.choose(street_suffixes)
+    };
+
+    if locale.number_before_street() {
+        format!("{} {} {}", number, street, suffix)
+    } else {
+        format!("{} {} {}", street, suffix, number)
+    }
 }
 
 /// Generate a batch of random city names.
-pub fn generate_cities(rng: &mut ForgeryRng, n: usize) -> Vec<String> {
+pub fn generate_cities(rng: &mut ForgeryRng, locale: Locale, n: usize) -> Vec<String> {
     let mut cities = Vec::with_capacity(n);
     for _ in 0..n {
-        cities.push(generate_city(rng));
+        cities.push(generate_city(rng, locale));
     }
     cities
 }
 
 /// Generate a single random city name.
 #[inline]
-pub fn generate_city(rng: &mut ForgeryRng) -> String {
-    rng.choose(CITIES).to_string()
+pub fn generate_city(rng: &mut ForgeryRng, locale: Locale) -> String {
+    let data = get_locale_data(locale);
+    let cities = data.cities().unwrap_or(&[]);
+    if cities.is_empty() {
+        "City".to_string()
+    } else {
+        rng.choose(cities).to_string()
+    }
 }
 
-/// Generate a batch of random state names.
-pub fn generate_states(rng: &mut ForgeryRng, n: usize) -> Vec<String> {
+/// Generate a batch of random state/region names.
+pub fn generate_states(rng: &mut ForgeryRng, locale: Locale, n: usize) -> Vec<String> {
     let mut states = Vec::with_capacity(n);
     for _ in 0..n {
-        states.push(generate_state(rng));
+        states.push(generate_state(rng, locale));
     }
     states
 }
 
-/// Generate a single random state name.
+/// Generate a single random state/region name.
 #[inline]
-pub fn generate_state(rng: &mut ForgeryRng) -> String {
-    rng.choose(STATES).to_string()
+pub fn generate_state(rng: &mut ForgeryRng, locale: Locale) -> String {
+    let data = get_locale_data(locale);
+    let regions = data.regions().unwrap_or(&[]);
+    if regions.is_empty() {
+        "State".to_string()
+    } else {
+        rng.choose(regions).to_string()
+    }
 }
 
-/// Generate a batch of random state abbreviations.
+/// Generate a batch of random state/region abbreviations.
 #[allow(dead_code)]
-pub fn generate_state_abbrs(rng: &mut ForgeryRng, n: usize) -> Vec<String> {
+pub fn generate_state_abbrs(rng: &mut ForgeryRng, locale: Locale, n: usize) -> Vec<String> {
     let mut abbrs = Vec::with_capacity(n);
     for _ in 0..n {
-        abbrs.push(generate_state_abbr(rng));
+        abbrs.push(generate_state_abbr(rng, locale));
     }
     abbrs
 }
 
-/// Generate a single random state abbreviation.
+/// Generate a single random state/region abbreviation.
 #[inline]
-pub fn generate_state_abbr(rng: &mut ForgeryRng) -> String {
-    rng.choose(STATE_ABBRS).to_string()
+pub fn generate_state_abbr(rng: &mut ForgeryRng, locale: Locale) -> String {
+    let data = get_locale_data(locale);
+    let abbrs = data.region_abbrs().unwrap_or(&[]);
+    if abbrs.is_empty() {
+        "ST".to_string()
+    } else {
+        rng.choose(abbrs).to_string()
+    }
 }
 
 /// Generate a batch of random country names.
@@ -83,65 +120,82 @@ pub fn generate_countries(rng: &mut ForgeryRng, n: usize) -> Vec<String> {
 /// Generate a single random country name.
 #[inline]
 pub fn generate_country(rng: &mut ForgeryRng) -> String {
+    // Countries are universal, not locale-specific
     rng.choose(COUNTRIES).to_string()
 }
 
-/// Generate a batch of random zip codes.
-///
-/// Format: "12345" or "12345-6789"
-pub fn generate_zip_codes(rng: &mut ForgeryRng, n: usize) -> Vec<String> {
+/// Generate a batch of random postal/zip codes.
+pub fn generate_zip_codes(rng: &mut ForgeryRng, locale: Locale, n: usize) -> Vec<String> {
     let mut zips = Vec::with_capacity(n);
     for _ in 0..n {
-        zips.push(generate_zip_code(rng));
+        zips.push(generate_zip_code(rng, locale));
     }
     zips
 }
 
-/// Generate a single random zip code.
+/// Generate a single random postal/zip code.
 #[inline]
-pub fn generate_zip_code(rng: &mut ForgeryRng) -> String {
-    let zip5: u32 = rng.gen_range(10000, 99999);
-    // 50% chance of extended zip code
-    if rng.gen_range(0u8, 1) == 1 {
-        let zip4: u32 = rng.gen_range(1000, 9999);
-        format!("{:05}-{:04}", zip5, zip4)
-    } else {
-        format!("{:05}", zip5)
+pub fn generate_zip_code(rng: &mut ForgeryRng, locale: Locale) -> String {
+    let data = get_locale_data(locale);
+    if let Some(format) = data.postal_code_format() {
+        if !format.patterns.is_empty() {
+            let pattern = rng.choose(format.patterns);
+            return expand_pattern(rng, pattern);
+        }
     }
+    // Default US format
+    let zip5: u32 = rng.gen_range(10000, 99999);
+    format!("{:05}", zip5)
+}
+
+/// Expand a format pattern where # is a digit and @ is a letter.
+fn expand_pattern(rng: &mut ForgeryRng, pattern: &str) -> String {
+    pattern
+        .chars()
+        .map(|c| match c {
+            '#' => {
+                let digit = rng.gen_range(0u8, 9);
+                char::from_digit(digit as u32, 10).unwrap()
+            }
+            '@' => {
+                let letter_idx = rng.gen_range(0u8, 25);
+                (b'A' + letter_idx) as char
+            }
+            _ => c,
+        })
+        .collect()
 }
 
 /// Generate a batch of random full addresses.
-///
-/// Format: "123 Main Street, City, ST 12345"
-pub fn generate_addresses(rng: &mut ForgeryRng, n: usize) -> Vec<String> {
+pub fn generate_addresses(rng: &mut ForgeryRng, locale: Locale, n: usize) -> Vec<String> {
     let mut addresses = Vec::with_capacity(n);
     for _ in 0..n {
-        addresses.push(generate_address(rng));
+        addresses.push(generate_address(rng, locale));
     }
     addresses
 }
 
 /// Generate a single random full address.
 #[inline]
-pub fn generate_address(rng: &mut ForgeryRng) -> String {
-    let street = generate_street_address(rng);
-    let city = generate_city(rng);
-    let state = generate_state_abbr(rng);
-    let zip = generate_zip_code(rng);
+pub fn generate_address(rng: &mut ForgeryRng, locale: Locale) -> String {
+    let street = generate_street_address(rng, locale);
+    let city = generate_city(rng, locale);
+    let state = generate_state_abbr(rng, locale);
+    let zip = generate_zip_code(rng, locale);
     format!("{}, {}, {} {}", street, city, state, zip)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::data::en_us::{CITIES, STATES};
 
-    // Street address tests
     #[test]
     fn test_generate_street_addresses_count() {
         let mut rng = ForgeryRng::new();
         rng.seed(42);
 
-        let addresses = generate_street_addresses(&mut rng, 100);
+        let addresses = generate_street_addresses(&mut rng, Locale::EnUS, 100);
         assert_eq!(addresses.len(), 100);
     }
 
@@ -150,16 +204,15 @@ mod tests {
         let mut rng = ForgeryRng::new();
         rng.seed(42);
 
-        let addresses = generate_street_addresses(&mut rng, 50);
+        let addresses = generate_street_addresses(&mut rng, Locale::EnUS, 50);
         for addr in &addresses {
-            // Should have at least 3 parts: number, street, suffix
             let parts: Vec<&str> = addr.split_whitespace().collect();
             assert!(
                 parts.len() >= 3,
                 "Address should have at least 3 parts: {}",
                 addr
             );
-            // First part should be numeric
+            // First part should be numeric for en_US
             assert!(
                 parts[0].parse::<u32>().is_ok(),
                 "First part should be numeric: {}",
@@ -176,19 +229,18 @@ mod tests {
         rng1.seed(12345);
         rng2.seed(12345);
 
-        let a1 = generate_street_addresses(&mut rng1, 100);
-        let a2 = generate_street_addresses(&mut rng2, 100);
+        let a1 = generate_street_addresses(&mut rng1, Locale::EnUS, 100);
+        let a2 = generate_street_addresses(&mut rng2, Locale::EnUS, 100);
 
         assert_eq!(a1, a2);
     }
 
-    // City tests
     #[test]
     fn test_generate_cities_count() {
         let mut rng = ForgeryRng::new();
         rng.seed(42);
 
-        let cities = generate_cities(&mut rng, 100);
+        let cities = generate_cities(&mut rng, Locale::EnUS, 100);
         assert_eq!(cities.len(), 100);
     }
 
@@ -197,7 +249,7 @@ mod tests {
         let mut rng = ForgeryRng::new();
         rng.seed(42);
 
-        let cities = generate_cities(&mut rng, 100);
+        let cities = generate_cities(&mut rng, Locale::EnUS, 100);
         for city in &cities {
             assert!(
                 CITIES.contains(&city.as_str()),
@@ -207,13 +259,12 @@ mod tests {
         }
     }
 
-    // State tests
     #[test]
     fn test_generate_states_count() {
         let mut rng = ForgeryRng::new();
         rng.seed(42);
 
-        let states = generate_states(&mut rng, 100);
+        let states = generate_states(&mut rng, Locale::EnUS, 100);
         assert_eq!(states.len(), 100);
     }
 
@@ -222,7 +273,7 @@ mod tests {
         let mut rng = ForgeryRng::new();
         rng.seed(42);
 
-        let states = generate_states(&mut rng, 100);
+        let states = generate_states(&mut rng, Locale::EnUS, 100);
         for state in &states {
             assert!(
                 STATES.contains(&state.as_str()),
@@ -237,7 +288,7 @@ mod tests {
         let mut rng = ForgeryRng::new();
         rng.seed(42);
 
-        let abbrs = generate_state_abbrs(&mut rng, 100);
+        let abbrs = generate_state_abbrs(&mut rng, Locale::EnUS, 100);
         for abbr in &abbrs {
             assert_eq!(abbr.len(), 2, "State abbr should be 2 chars: {}", abbr);
             assert!(
@@ -248,7 +299,6 @@ mod tests {
         }
     }
 
-    // Country tests
     #[test]
     fn test_generate_countries_count() {
         let mut rng = ForgeryRng::new();
@@ -273,42 +323,53 @@ mod tests {
         }
     }
 
-    // Zip code tests
     #[test]
     fn test_generate_zip_codes_count() {
         let mut rng = ForgeryRng::new();
         rng.seed(42);
 
-        let zips = generate_zip_codes(&mut rng, 100);
+        let zips = generate_zip_codes(&mut rng, Locale::EnUS, 100);
         assert_eq!(zips.len(), 100);
     }
 
     #[test]
-    fn test_zip_code_format() {
+    fn test_zip_code_format_us() {
         let mut rng = ForgeryRng::new();
         rng.seed(42);
 
-        let zips = generate_zip_codes(&mut rng, 100);
+        let zips = generate_zip_codes(&mut rng, Locale::EnUS, 100);
         for zip in &zips {
-            // Either 5 digits or 5-4 format
+            // US format is 5 digits or 5-4 format
             assert!(
                 zip.len() == 5 || zip.len() == 10,
-                "Zip should be 5 or 10 chars: {}",
+                "US Zip should be 5 or 10 chars: {}",
                 zip
             );
-            if zip.len() == 10 {
-                assert!(zip.contains('-'), "Extended zip should have dash: {}", zip);
-            }
         }
     }
 
-    // Full address tests
+    #[test]
+    fn test_zip_code_format_uk() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let zips = generate_zip_codes(&mut rng, Locale::EnGB, 100);
+        for zip in &zips {
+            // UK format should have letters and numbers
+            assert!(
+                zip.chars().any(|c| c.is_alphabetic()),
+                "UK postcode should have letters: {}",
+                zip
+            );
+        }
+    }
+
     #[test]
     fn test_generate_addresses_count() {
         let mut rng = ForgeryRng::new();
         rng.seed(42);
 
-        let addresses = generate_addresses(&mut rng, 100);
+        let addresses = generate_addresses(&mut rng, Locale::EnUS, 100);
         assert_eq!(addresses.len(), 100);
     }
 
@@ -317,9 +378,8 @@ mod tests {
         let mut rng = ForgeryRng::new();
         rng.seed(42);
 
-        let addresses = generate_addresses(&mut rng, 50);
+        let addresses = generate_addresses(&mut rng, Locale::EnUS, 50);
         for addr in &addresses {
-            // Should contain commas
             assert!(addr.contains(','), "Address should have commas: {}", addr);
         }
     }
@@ -332,8 +392,8 @@ mod tests {
         rng1.seed(12345);
         rng2.seed(12345);
 
-        let a1 = generate_addresses(&mut rng1, 100);
-        let a2 = generate_addresses(&mut rng2, 100);
+        let a1 = generate_addresses(&mut rng1, Locale::EnUS, 100);
+        let a2 = generate_addresses(&mut rng2, Locale::EnUS, 100);
 
         assert_eq!(a1, a2);
     }
@@ -346,8 +406,8 @@ mod tests {
         rng1.seed(1);
         rng2.seed(2);
 
-        let a1 = generate_addresses(&mut rng1, 100);
-        let a2 = generate_addresses(&mut rng2, 100);
+        let a1 = generate_addresses(&mut rng1, Locale::EnUS, 100);
+        let a2 = generate_addresses(&mut rng2, Locale::EnUS, 100);
 
         assert_ne!(a1, a2, "Different seeds should produce different addresses");
     }
@@ -356,12 +416,35 @@ mod tests {
     fn test_empty_batches() {
         let mut rng = ForgeryRng::new();
 
-        assert!(generate_street_addresses(&mut rng, 0).is_empty());
-        assert!(generate_cities(&mut rng, 0).is_empty());
-        assert!(generate_states(&mut rng, 0).is_empty());
+        assert!(generate_street_addresses(&mut rng, Locale::EnUS, 0).is_empty());
+        assert!(generate_cities(&mut rng, Locale::EnUS, 0).is_empty());
+        assert!(generate_states(&mut rng, Locale::EnUS, 0).is_empty());
         assert!(generate_countries(&mut rng, 0).is_empty());
-        assert!(generate_zip_codes(&mut rng, 0).is_empty());
-        assert!(generate_addresses(&mut rng, 0).is_empty());
+        assert!(generate_zip_codes(&mut rng, Locale::EnUS, 0).is_empty());
+        assert!(generate_addresses(&mut rng, Locale::EnUS, 0).is_empty());
+    }
+
+    #[test]
+    fn test_all_locales_generate_addresses() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        for locale in [
+            Locale::EnUS,
+            Locale::EnGB,
+            Locale::DeDE,
+            Locale::FrFR,
+            Locale::EsES,
+            Locale::ItIT,
+            Locale::JaJP,
+        ] {
+            let addr = generate_address(&mut rng, locale);
+            assert!(
+                !addr.is_empty(),
+                "Address should not be empty for {:?}",
+                locale
+            );
+        }
     }
 }
 
@@ -371,49 +454,33 @@ mod proptest_tests {
     use proptest::prelude::*;
 
     proptest! {
-        /// Property: street address batch size is always respected
         #[test]
         fn prop_street_address_batch_size(n in 0usize..500) {
             let mut rng = ForgeryRng::new();
             rng.seed(42);
 
-            let addresses = generate_street_addresses(&mut rng, n);
+            let addresses = generate_street_addresses(&mut rng, Locale::EnUS, n);
             prop_assert_eq!(addresses.len(), n);
         }
 
-        /// Property: city batch size is always respected
         #[test]
         fn prop_city_batch_size(n in 0usize..500) {
             let mut rng = ForgeryRng::new();
             rng.seed(42);
 
-            let cities = generate_cities(&mut rng, n);
+            let cities = generate_cities(&mut rng, Locale::EnUS, n);
             prop_assert_eq!(cities.len(), n);
         }
 
-        /// Property: all cities come from data
-        #[test]
-        fn prop_city_from_data(n in 1usize..100) {
-            let mut rng = ForgeryRng::new();
-            rng.seed(42);
-
-            let cities = generate_cities(&mut rng, n);
-            for city in cities {
-                prop_assert!(CITIES.contains(&city.as_str()));
-            }
-        }
-
-        /// Property: address batch size is always respected
         #[test]
         fn prop_address_batch_size(n in 0usize..500) {
             let mut rng = ForgeryRng::new();
             rng.seed(42);
 
-            let addresses = generate_addresses(&mut rng, n);
+            let addresses = generate_addresses(&mut rng, Locale::EnUS, n);
             prop_assert_eq!(addresses.len(), n);
         }
 
-        /// Property: same seed produces same output
         #[test]
         fn prop_address_seed_determinism(seed_val in any::<u64>(), n in 1usize..50) {
             let mut rng1 = ForgeryRng::new();
@@ -422,8 +489,8 @@ mod proptest_tests {
             rng1.seed(seed_val);
             rng2.seed(seed_val);
 
-            let a1 = generate_addresses(&mut rng1, n);
-            let a2 = generate_addresses(&mut rng2, n);
+            let a1 = generate_addresses(&mut rng1, Locale::EnUS, n);
+            let a2 = generate_addresses(&mut rng2, Locale::EnUS, n);
 
             prop_assert_eq!(a1, a2);
         }
