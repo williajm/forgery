@@ -23,7 +23,12 @@ rand_chacha = "0.9"
 arrow-array = "57"
 arrow-buffer = "57"
 arrow-schema = "57"
+arrow-select = "57"
 pyo3-arrow = "0.15"
+
+# Async support for non-blocking generation
+pyo3-async-runtimes = { version = "0.27", features = ["tokio-runtime"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 
 [features]
 default = []

@@ -4,6 +4,7 @@
 //! of fake data. All generators follow the batch-first pattern, returning `Vec<T>`.
 
 pub mod address;
+pub mod async_records;
 pub mod colors;
 pub mod company;
 pub mod custom;

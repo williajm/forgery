@@ -11,6 +11,10 @@ use rand_chacha::ChaCha8Rng;
 /// Uses ChaCha8 for a good balance of speed and quality.
 /// Each instance is independent, allowing multiple Faker instances
 /// to have their own reproducible sequences.
+///
+/// Implements `Clone` to support async generation where RNG state
+/// must be captured before entering async blocks.
+#[derive(Clone)]
 pub struct ForgeryRng {
     rng: ChaCha8Rng,
 }

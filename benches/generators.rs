@@ -184,6 +184,23 @@ fn bench_records_generation(c: &mut Criterion) {
         );
     }
 
+    // Arrow generation benchmarks
+    for size in [100, 1_000, 10_000].iter() {
+        group.throughput(Throughput::Elements(*size as u64));
+        group.bench_with_input(
+            criterion::BenchmarkId::new("records_arrow", size),
+            size,
+            |b, &size| {
+                let mut faker = Faker::new("en_US").unwrap();
+                faker.seed(42);
+                b.iter(|| {
+                    let batch = faker.records_arrow(black_box(size), &schema).unwrap();
+                    black_box(batch)
+                });
+            },
+        );
+    }
+
     group.finish();
 }
 

@@ -43,7 +43,8 @@ Example:
     >>> german_fake.names(10)  # German names
 """
 
-from typing import TYPE_CHECKING
+from collections.abc import Coroutine
+from typing import TYPE_CHECKING, Any
 
 from forgery._forgery import Faker
 
@@ -115,7 +116,10 @@ __all__ = [
     "phone_numbers",
     "records",
     "records_arrow",
+    "records_arrow_async",
+    "records_async",
     "records_tuples",
+    "records_tuples_async",
     "remove_provider",
     "rgb_color",
     "rgb_colors",
@@ -806,6 +810,123 @@ def records_arrow(n: int, schema: Schema) -> "pyarrow.RecordBatch":
         >>> df_polars = pl.from_arrow(batch)
     """
     return fake.records_arrow(n, schema)
+
+
+# === Async Records Generation ===
+
+
+def records_async(
+    n: int, schema: Schema, chunk_size: int | None = None
+) -> Coroutine[Any, Any, list[dict[str, object]]]:
+    """Generate structured records asynchronously for non-blocking batch generation.
+
+    This method generates records in chunks, yielding control between chunks
+    to allow other async tasks to run. Ideal for generating millions of records
+    without blocking the event loop.
+
+    The schema format is identical to records().
+
+    Note on RNG State:
+        The async methods use a snapshot of the RNG state at call time. The main
+        Faker instance's RNG is not advanced. For different results on each call,
+        create separate Faker instances or re-seed between calls.
+
+    Args:
+        n: Number of records to generate.
+        schema: Dictionary mapping field names to type specifications.
+        chunk_size: Number of records per chunk (default: 10,000).
+            Smaller chunks yield control more frequently.
+
+    Returns:
+        A coroutine that resolves to a list of dictionaries.
+
+    Example:
+        >>> import asyncio
+        >>> from forgery import records_async, seed
+        >>> async def main():
+        ...     seed(42)
+        ...     records = await records_async(1_000_000, {
+        ...         "name": "name",
+        ...         "email": "email",
+        ...     })
+        ...     return len(records)
+        >>> asyncio.run(main())
+        1000000
+    """
+    return fake.records_async(n, schema, chunk_size)
+
+
+def records_tuples_async(
+    n: int, schema: Schema, chunk_size: int | None = None
+) -> Coroutine[Any, Any, list[tuple[object, ...]]]:
+    """Generate structured records as tuples asynchronously.
+
+    Similar to records_async() but returns tuples instead of dictionaries,
+    which is faster for large datasets. Values are returned in alphabetical
+    order of the schema keys.
+
+    The schema format is identical to records().
+
+    Args:
+        n: Number of records to generate.
+        schema: Dictionary mapping field names to type specifications.
+        chunk_size: Number of records per chunk (default: 10,000).
+
+    Returns:
+        A coroutine that resolves to a list of tuples.
+
+    Example:
+        >>> import asyncio
+        >>> from forgery import records_tuples_async, seed
+        >>> async def main():
+        ...     seed(42)
+        ...     records = await records_tuples_async(100, {
+        ...         "age": ("int", 18, 65),
+        ...         "name": "name",
+        ...     })
+        ...     return len(records)
+        >>> asyncio.run(main())
+        100
+    """
+    return fake.records_tuples_async(n, schema, chunk_size)
+
+
+def records_arrow_async(
+    n: int, schema: Schema, chunk_size: int | None = None
+) -> Coroutine[Any, Any, "pyarrow.RecordBatch"]:
+    """Generate structured records as a PyArrow RecordBatch asynchronously.
+
+    This is the high-performance async path for generating structured data.
+    Generates data in chunks and concatenates them into a single RecordBatch.
+
+    The schema format is identical to records().
+
+    Note:
+        Requires pyarrow to be installed: pip install pyarrow
+
+    Args:
+        n: Number of records to generate.
+        schema: Dictionary mapping field names to type specifications.
+        chunk_size: Number of records per chunk (default: 10,000).
+
+    Returns:
+        A coroutine that resolves to a PyArrow RecordBatch.
+
+    Example:
+        >>> import asyncio
+        >>> import pyarrow as pa
+        >>> from forgery import records_arrow_async, seed
+        >>> async def main():
+        ...     seed(42)
+        ...     batch = await records_arrow_async(100_000, {
+        ...         "id": "uuid",
+        ...         "name": "name",
+        ...     })
+        ...     return batch.num_rows
+        >>> asyncio.run(main())
+        100000
+    """
+    return fake.records_arrow_async(n, schema, chunk_size)
 
 
 # === Custom Providers ===

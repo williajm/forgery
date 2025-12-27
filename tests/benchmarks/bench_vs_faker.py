@@ -473,6 +473,88 @@ def main() -> None:
         "records_tuples",
     )
 
+    # Records Arrow (Phase 3.3)
+    try:
+        import pyarrow
+
+        _ = pyarrow  # Silence unused import warning
+        forgery.seed(42)
+        run_benchmark(
+            "Records Arrow (6-field schema)",
+            lambda: forgery.records_arrow(N, schema),
+            None,  # No Faker equivalent
+            results,
+            "records_arrow",
+        )
+    except ImportError:
+        print("PyArrow not installed - skipping records_arrow benchmark\n")
+
+    # ==========================================================================
+    # Async Generation (Phase 3.4)
+    # ==========================================================================
+    print("=" * 60)
+    print("ASYNC GENERATION")
+    print("=" * 60 + "\n")
+
+    import asyncio
+
+    # Helper to run async benchmark
+    def bench_async(
+        name: str, coro_func: Callable[[], object], iterations: int = 3
+    ) -> float:
+        """Run an async benchmark and return the best time."""
+        times = []
+        for _ in range(iterations):
+            start = time.perf_counter()
+            asyncio.run(coro_func())  # type: ignore[arg-type]
+            elapsed = time.perf_counter() - start
+            times.append(elapsed)
+        best = min(times)
+        print(f"  {name}: {best:.3f}s")
+        return best
+
+    # Compare sync vs async records generation
+    print("Sync vs Async Overhead (records):")
+    forgery.seed(42)
+    sync_time = bench(f"forgery.records({N})", lambda: forgery.records(N, schema))
+
+    async def async_records() -> list[dict[str, object]]:
+        return await forgery.records_async(N, schema)
+
+    forgery.seed(42)
+    async_time = bench_async(f"forgery.records_async({N})", async_records)
+    overhead = ((async_time / sync_time) - 1) * 100
+    print(f"  Async overhead: {overhead:+.1f}%\n")
+
+    results["records_sync"] = {"forgery": sync_time}
+    results["records_async"] = {"forgery": async_time}
+
+    # Records Arrow async
+    try:
+        import pyarrow
+
+        _ = pyarrow  # Silence unused import warning
+        print("Sync vs Async Overhead (records_arrow):")
+        forgery.seed(42)
+        sync_arrow_time = bench(
+            f"forgery.records_arrow({N})", lambda: forgery.records_arrow(N, schema)
+        )
+
+        async def async_records_arrow() -> object:
+            return await forgery.records_arrow_async(N, schema)
+
+        forgery.seed(42)
+        async_arrow_time = bench_async(
+            f"forgery.records_arrow_async({N})", async_records_arrow
+        )
+        overhead = ((async_arrow_time / sync_arrow_time) - 1) * 100
+        print(f"  Async overhead: {overhead:+.1f}%\n")
+
+        results["records_arrow_sync"] = {"forgery": sync_arrow_time}
+        results["records_arrow_async"] = {"forgery": async_arrow_time}
+    except ImportError:
+        print("PyArrow not installed - skipping async Arrow benchmark\n")
+
     # ==========================================================================
     # Summary
     # ==========================================================================
