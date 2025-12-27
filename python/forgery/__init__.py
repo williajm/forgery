@@ -43,9 +43,12 @@ Example:
     >>> german_fake.names(10)  # German names
 """
 
-from typing import Any
+from typing import TYPE_CHECKING
 
 from forgery._forgery import Faker
+
+if TYPE_CHECKING:
+    import pyarrow
 
 __all__ = [
     "Faker",
@@ -757,7 +760,7 @@ def records_tuples(n: int, schema: Schema) -> list[tuple[object, ...]]:
     return fake.records_tuples(n, schema)
 
 
-def records_arrow(n: int, schema: Schema) -> Any:
+def records_arrow(n: int, schema: Schema) -> "pyarrow.RecordBatch":
     """Generate structured records as a PyArrow RecordBatch.
 
     This is the high-performance path for generating structured data,
