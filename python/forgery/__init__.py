@@ -31,26 +31,23 @@ Example:
 from forgery._forgery import Faker
 
 __all__ = [
-    # Core
     "Faker",
+    "add_provider",
+    "add_weighted_provider",
     "address",
     "addresses",
     "catch_phrase",
     "catch_phrases",
     "cities",
     "city",
-    # Colors
     "color",
     "colors",
     "companies",
-    # Company
     "company",
     "countries",
     "country",
-    # Finance
     "credit_card",
     "credit_cards",
-    # DateTime
     "date",
     "date_of_birth",
     "dates",
@@ -59,7 +56,6 @@ __all__ = [
     "datetimes",
     "domain_name",
     "domain_names",
-    # Internet
     "email",
     "emails",
     "fake",
@@ -69,11 +65,13 @@ __all__ = [
     "floats",
     "free_email",
     "free_emails",
+    "generate",
+    "generate_batch",
+    "has_provider",
     "hex_color",
     "hex_colors",
     "iban",
     "ibans",
-    # Numbers
     "integer",
     "integers",
     "ipv4",
@@ -84,42 +82,37 @@ __all__ = [
     "jobs",
     "last_name",
     "last_names",
+    "list_providers",
     "mac_address",
     "mac_addresses",
     "md5",
     "md5s",
-    # Names
     "name",
     "names",
     "paragraph",
     "paragraphs",
-    # Phone
     "phone_number",
     "phone_numbers",
-    # Records
     "records",
     "records_tuples",
+    "remove_provider",
     "rgb_color",
     "rgb_colors",
     "safe_email",
     "safe_emails",
     "seed",
-    # Text
     "sentence",
     "sentences",
     "sha256",
     "sha256s",
     "state",
     "states",
-    # Address
     "street_address",
     "street_addresses",
     "text",
     "texts",
-    # Network
     "url",
     "urls",
-    # Identifiers
     "uuid",
     "uuids",
     "zip_code",
@@ -743,3 +736,131 @@ def records_tuples(n: int, schema: Schema) -> list[tuple[object, ...]]:
         2
     """
     return fake.records_tuples(n, schema)
+
+
+# === Custom Providers ===
+
+
+def add_provider(name: str, options: list[str]) -> None:
+    """Register a custom provider on the default Faker instance.
+
+    Each option has equal probability of being selected.
+
+    Args:
+        name: The provider name (must not conflict with built-in types)
+        options: List of string options to choose from
+
+    Raises:
+        ValueError: If name conflicts with built-in type or options is empty
+
+    Example:
+        >>> from forgery import add_provider, generate, seed
+        >>> add_provider("department", ["Engineering", "Sales", "HR", "Marketing"])
+        >>> seed(42)
+        >>> dept = generate("department")
+        >>> dept in ["Engineering", "Sales", "HR", "Marketing"]
+        True
+    """
+    fake.add_provider(name, options)
+
+
+def add_weighted_provider(name: str, weighted_options: list[tuple[str, int]]) -> None:
+    """Register a weighted custom provider on the default Faker instance.
+
+    Options are selected based on their relative weights. Higher weights mean
+    the option is more likely to be selected.
+
+    Args:
+        name: The provider name (must not conflict with built-in types)
+        weighted_options: List of (value, weight) tuples
+
+    Raises:
+        ValueError: If name conflicts, options empty, or weights invalid
+
+    Example:
+        >>> from forgery import add_weighted_provider, generate_batch, seed
+        >>> add_weighted_provider("status", [("active", 80), ("inactive", 20)])
+        >>> seed(42)
+        >>> statuses = generate_batch("status", 1000)
+        >>> # Expect ~800 "active", ~200 "inactive"
+    """
+    fake.add_weighted_provider(name, weighted_options)
+
+
+def remove_provider(name: str) -> bool:
+    """Remove a custom provider from the default Faker instance.
+
+    Args:
+        name: The provider name to remove
+
+    Returns:
+        True if provider was removed, False if it didn't exist
+    """
+    return fake.remove_provider(name)
+
+
+def has_provider(name: str) -> bool:
+    """Check if a custom provider exists on the default Faker instance.
+
+    Args:
+        name: The provider name to check
+
+    Returns:
+        True if provider exists, False otherwise
+    """
+    return fake.has_provider(name)
+
+
+def list_providers() -> list[str]:
+    """List all custom provider names on the default Faker instance.
+
+    Returns:
+        List of registered custom provider names
+    """
+    return fake.list_providers()
+
+
+def generate(name: str) -> str:
+    """Generate a single value from a custom provider.
+
+    Args:
+        name: The custom provider name
+
+    Returns:
+        A randomly selected string from the provider's options
+
+    Raises:
+        ValueError: If provider doesn't exist
+
+    Example:
+        >>> from forgery import add_provider, generate, seed
+        >>> add_provider("color_code", ["red", "green", "blue"])
+        >>> seed(42)
+        >>> generate("color_code")
+        'green'
+    """
+    return fake.generate(name)
+
+
+def generate_batch(name: str, n: int) -> list[str]:
+    """Generate a batch of values from a custom provider.
+
+    Args:
+        name: The custom provider name
+        n: Number of values to generate
+
+    Returns:
+        A list of randomly selected strings
+
+    Raises:
+        ValueError: If provider doesn't exist or n exceeds batch limit
+
+    Example:
+        >>> from forgery import add_provider, generate_batch, seed
+        >>> add_provider("size", ["small", "medium", "large"])
+        >>> seed(42)
+        >>> sizes = generate_batch("size", 100)
+        >>> len(sizes)
+        100
+    """
+    return fake.generate_batch(name, n)

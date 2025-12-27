@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Custom Providers API** (Phase 3.2): Register your own data providers
+  - `add_provider(name, options)`: Register uniform (equal probability) provider
+  - `add_weighted_provider(name, weighted_options)`: Register weighted provider
+  - `generate(name)` / `generate_batch(name, n)`: Generate values from custom providers
+  - `has_provider(name)`, `list_providers()`, `remove_provider(name)`: Provider management
+  - Custom providers integrate with `records()` schema as field types
+  - Precomputed cumulative weights for O(log n) weighted selection
+  - Deterministic seeding works with custom providers
+
 ## [0.1.0] - Unreleased
 
 ### Added

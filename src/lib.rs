@@ -27,9 +27,10 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyString, PyTuple};
 use pyo3::IntoPyObjectExt;
 use rng::ForgeryRng;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use locale::{Locale, LocaleError};
+use providers::custom::{is_builtin_type, CustomProvider, CustomProviderError};
 use std::str::FromStr;
 
 /// Maximum batch size to prevent memory exhaustion.
@@ -103,6 +104,7 @@ pub fn validate_locale(locale: &str) -> Result<Locale, LocaleError> {
 pub struct Faker {
     rng: ForgeryRng,
     locale: Locale,
+    custom_providers: HashMap<String, CustomProvider>,
 }
 
 // Public Rust API - these methods are callable from Rust code (including benchmarks)
@@ -131,6 +133,7 @@ impl Faker {
         Ok(Self {
             rng: ForgeryRng::new(),
             locale: parsed_locale,
+            custom_providers: HashMap::new(),
         })
     }
 
@@ -139,6 +142,7 @@ impl Faker {
         Self {
             rng: ForgeryRng::new(),
             locale: Locale::default(),
+            custom_providers: HashMap::new(),
         }
     }
 
@@ -836,6 +840,147 @@ impl Faker {
             field_order,
         )?)
     }
+
+    // === Custom Providers ===
+
+    /// Register a custom provider with uniform random selection.
+    ///
+    /// Each option has equal probability of being selected.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The provider name (must not conflict with built-in types)
+    /// * `options` - List of string options to choose from
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The name conflicts with a built-in type
+    /// - The options list is empty
+    pub fn add_provider(
+        &mut self,
+        name: &str,
+        options: Vec<String>,
+    ) -> Result<(), CustomProviderError> {
+        if is_builtin_type(name) {
+            return Err(CustomProviderError::NameCollision(name.to_string()));
+        }
+        let provider = CustomProvider::uniform(options)?;
+        self.custom_providers.insert(name.to_string(), provider);
+        Ok(())
+    }
+
+    /// Register a custom provider with weighted random selection.
+    ///
+    /// Options are selected based on their relative weights.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The provider name (must not conflict with built-in types)
+    /// * `pairs` - List of (value, weight) tuples
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The name conflicts with a built-in type
+    /// - The options list is empty
+    /// - All weights are zero
+    pub fn add_weighted_provider(
+        &mut self,
+        name: &str,
+        pairs: Vec<(String, u64)>,
+    ) -> Result<(), CustomProviderError> {
+        if is_builtin_type(name) {
+            return Err(CustomProviderError::NameCollision(name.to_string()));
+        }
+        let provider = CustomProvider::weighted(pairs)?;
+        self.custom_providers.insert(name.to_string(), provider);
+        Ok(())
+    }
+
+    /// Remove a custom provider.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The provider name to remove
+    ///
+    /// # Returns
+    ///
+    /// `true` if the provider was removed, `false` if it didn't exist.
+    pub fn remove_provider(&mut self, name: &str) -> bool {
+        self.custom_providers.remove(name).is_some()
+    }
+
+    /// Check if a custom provider exists.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The provider name to check
+    ///
+    /// # Returns
+    ///
+    /// `true` if the provider exists, `false` otherwise.
+    pub fn has_provider(&self, name: &str) -> bool {
+        self.custom_providers.contains_key(name)
+    }
+
+    /// List all registered custom provider names.
+    ///
+    /// # Returns
+    ///
+    /// A vector of provider names.
+    pub fn list_providers(&self) -> Vec<String> {
+        self.custom_providers.keys().cloned().collect()
+    }
+
+    /// Get a set of all custom provider names.
+    ///
+    /// Used internally for schema validation.
+    pub fn custom_provider_names(&self) -> HashSet<String> {
+        self.custom_providers.keys().cloned().collect()
+    }
+
+    /// Generate a single value from a custom provider.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The custom provider name
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the provider doesn't exist.
+    pub fn generate(&mut self, name: &str) -> Result<String, CustomProviderError> {
+        let provider = self
+            .custom_providers
+            .get(name)
+            .ok_or_else(|| CustomProviderError::NotFound(name.to_string()))?;
+        Ok(provider.generate(&mut self.rng))
+    }
+
+    /// Generate a batch of values from a custom provider.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The custom provider name
+    /// * `n` - Number of values to generate
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The provider doesn't exist
+    /// - `n` exceeds the maximum batch size
+    pub fn generate_batch(
+        &mut self,
+        name: &str,
+        n: usize,
+    ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+        validate_batch_size(n)?;
+        let provider = self
+            .custom_providers
+            .get(name)
+            .ok_or_else(|| CustomProviderError::NotFound(name.to_string()))?;
+        Ok(provider.generate_batch(&mut self.rng, n))
+    }
 }
 
 // Python API - these methods are exposed to Python via PyO3
@@ -1370,12 +1515,125 @@ impl Faker {
         self.iban()
     }
 
+    // === Custom Providers ===
+
+    /// Register a custom provider with uniform random selection.
+    ///
+    /// Args:
+    ///     name: The provider name (must not conflict with built-in types)
+    ///     options: List of string options to choose from
+    ///
+    /// Raises:
+    ///     ValueError: If name conflicts with built-in type or options is empty
+    ///
+    /// Example:
+    ///     >>> fake = Faker()
+    ///     >>> fake.add_provider("department", ["Engineering", "Sales", "HR"])
+    ///     >>> fake.generate("department")
+    ///     'Sales'
+    #[pyo3(name = "add_provider")]
+    fn py_add_provider(&mut self, name: &str, options: Vec<String>) -> PyResult<()> {
+        self.add_provider(name, options)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
+    /// Register a custom provider with weighted random selection.
+    ///
+    /// Args:
+    ///     name: The provider name
+    ///     weighted_options: List of (value, weight) tuples. Higher weights = more likely.
+    ///
+    /// Raises:
+    ///     ValueError: If name conflicts, options empty, or weights invalid
+    ///
+    /// Example:
+    ///     >>> fake = Faker()
+    ///     >>> fake.add_weighted_provider("status", [("active", 80), ("inactive", 20)])
+    ///     >>> fake.generate("status")  # ~80% chance of "active"
+    ///     'active'
+    #[pyo3(name = "add_weighted_provider")]
+    fn py_add_weighted_provider(
+        &mut self,
+        name: &str,
+        weighted_options: Vec<(String, u64)>,
+    ) -> PyResult<()> {
+        self.add_weighted_provider(name, weighted_options)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
+    /// Remove a custom provider.
+    ///
+    /// Args:
+    ///     name: The provider name to remove
+    ///
+    /// Returns:
+    ///     True if provider was removed, False if it didn't exist
+    #[pyo3(name = "remove_provider")]
+    fn py_remove_provider(&mut self, name: &str) -> bool {
+        self.remove_provider(name)
+    }
+
+    /// Check if a custom provider exists.
+    ///
+    /// Args:
+    ///     name: The provider name to check
+    ///
+    /// Returns:
+    ///     True if provider exists, False otherwise
+    #[pyo3(name = "has_provider")]
+    fn py_has_provider(&self, name: &str) -> bool {
+        self.has_provider(name)
+    }
+
+    /// List all registered custom provider names.
+    ///
+    /// Returns:
+    ///     List of registered custom provider names
+    #[pyo3(name = "list_providers")]
+    fn py_list_providers(&self) -> Vec<String> {
+        self.list_providers()
+    }
+
+    /// Generate a single value from a custom provider.
+    ///
+    /// Args:
+    ///     name: The custom provider name
+    ///
+    /// Returns:
+    ///     A randomly selected string from the provider's options
+    ///
+    /// Raises:
+    ///     ValueError: If provider doesn't exist
+    #[pyo3(name = "generate")]
+    fn py_generate(&mut self, name: &str) -> PyResult<String> {
+        self.generate(name)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
+    /// Generate a batch of values from a custom provider.
+    ///
+    /// Args:
+    ///     name: The custom provider name
+    ///     n: Number of values to generate
+    ///
+    /// Returns:
+    ///     A list of randomly selected strings
+    ///
+    /// Raises:
+    ///     ValueError: If provider doesn't exist or n exceeds batch limit
+    #[pyo3(name = "generate_batch")]
+    fn py_generate_batch(&mut self, name: &str, n: usize) -> PyResult<Vec<String>> {
+        self.generate_batch(name, n)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
     // === Records Generation ===
 
     /// Generate records based on a schema.
     ///
     /// The schema is a dictionary mapping field names to type specifications:
     /// - Simple types: "name", "email", "uuid", "int", "float", etc.
+    /// - Custom providers: Any registered custom provider name
     /// - Integer range: ("int", min, max)
     /// - Float range: ("float", min, max)
     /// - Text with limits: ("text", min_chars, max_chars)
@@ -1384,12 +1642,18 @@ impl Faker {
     #[pyo3(name = "records")]
     fn py_records(&mut self, n: usize, schema: &Bound<'_, PyDict>) -> PyResult<Vec<Py<PyAny>>> {
         let py = schema.py();
-        let rust_schema = parse_py_schema(schema)?;
+        let custom_names = self.custom_provider_names();
+        let rust_schema = parse_py_schema_with_custom(schema, &custom_names)?;
         validate_batch_size(n).map_err(|e| PyValueError::new_err(e.to_string()))?;
 
-        let records =
-            providers::records::generate_records(&mut self.rng, self.locale, n, &rust_schema)
-                .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let records = providers::records::generate_records_with_custom(
+            &mut self.rng,
+            self.locale,
+            n,
+            &rust_schema,
+            &self.custom_providers,
+        )
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
 
         records
             .into_iter()
@@ -1414,18 +1678,20 @@ impl Faker {
         schema: &Bound<'_, PyDict>,
     ) -> PyResult<Vec<Py<PyAny>>> {
         let py = schema.py();
-        let rust_schema = parse_py_schema(schema)?;
+        let custom_names = self.custom_provider_names();
+        let rust_schema = parse_py_schema_with_custom(schema, &custom_names)?;
         validate_batch_size(n).map_err(|e| PyValueError::new_err(e.to_string()))?;
 
         // Get field order from BTreeMap (sorted alphabetically)
         let field_order: Vec<String> = rust_schema.keys().cloned().collect();
 
-        let records = providers::records::generate_records_tuples(
+        let records = providers::records::generate_records_tuples_with_custom(
             &mut self.rng,
             self.locale,
             n,
             &rust_schema,
             &field_order,
+            &self.custom_providers,
         )
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
 
@@ -1442,25 +1708,29 @@ impl Faker {
     }
 }
 
-/// Parse a Python schema dictionary into a Rust BTreeMap.
-fn parse_py_schema(
+/// Parse a Python schema dictionary into a Rust BTreeMap, with custom provider support.
+fn parse_py_schema_with_custom(
     schema: &Bound<'_, PyDict>,
+    custom_provider_names: &HashSet<String>,
 ) -> PyResult<BTreeMap<String, providers::records::FieldSpec>> {
     let mut rust_schema = BTreeMap::new();
 
     for (key, value) in schema.iter() {
         let field_name: String = key.extract()?;
-        let field_spec = parse_field_spec(&value)?;
+        let field_spec = parse_field_spec_with_custom(&value, custom_provider_names)?;
         rust_schema.insert(field_name, field_spec);
     }
 
     Ok(rust_schema)
 }
 
-/// Parse a Python field specification into a Rust FieldSpec.
-fn parse_field_spec(value: &Bound<'_, PyAny>) -> PyResult<providers::records::FieldSpec> {
+/// Parse a Python field specification into a Rust FieldSpec, with custom provider support.
+fn parse_field_spec_with_custom(
+    value: &Bound<'_, PyAny>,
+    custom_provider_names: &HashSet<String>,
+) -> PyResult<providers::records::FieldSpec> {
     if value.is_instance_of::<PyString>() {
-        return parse_string_field_spec(value);
+        return parse_string_field_spec_with_custom(value, custom_provider_names);
     }
     if value.is_instance_of::<PyTuple>() {
         return parse_tuple_field_spec(value);
@@ -1470,10 +1740,13 @@ fn parse_field_spec(value: &Bound<'_, PyAny>) -> PyResult<providers::records::Fi
     ))
 }
 
-/// Parse a simple string type specification.
-fn parse_string_field_spec(value: &Bound<'_, PyAny>) -> PyResult<providers::records::FieldSpec> {
+/// Parse a simple string type specification, with custom provider support.
+fn parse_string_field_spec_with_custom(
+    value: &Bound<'_, PyAny>,
+    custom_provider_names: &HashSet<String>,
+) -> PyResult<providers::records::FieldSpec> {
     let type_str: String = value.extract()?;
-    providers::records::parse_simple_type(&type_str)
+    providers::records::parse_simple_type_with_custom(&type_str, custom_provider_names)
         .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
