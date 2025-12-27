@@ -33,6 +33,16 @@ use tokio::task::yield_now;
 /// - Large enough to amortize overhead (efficient generation)
 pub const DEFAULT_CHUNK_SIZE: usize = 10_000;
 
+/// Normalize chunk size, using default if zero.
+#[inline]
+fn normalize_chunk_size(chunk_size: usize) -> usize {
+    if chunk_size == 0 {
+        DEFAULT_CHUNK_SIZE
+    } else {
+        chunk_size
+    }
+}
+
 /// Generate records asynchronously with chunking.
 ///
 /// This function generates records in chunks, yielding control between
@@ -62,12 +72,7 @@ pub async fn generate_records_async(
     // Validate schema upfront (even when n=0)
     validate_schema_with_custom(schema, custom_providers)?;
 
-    let chunk_size = if chunk_size == 0 {
-        DEFAULT_CHUNK_SIZE
-    } else {
-        chunk_size
-    };
-
+    let chunk_size = normalize_chunk_size(chunk_size);
     let mut records = Vec::with_capacity(n);
     let mut remaining = n;
 
@@ -156,12 +161,7 @@ pub async fn generate_records_tuples_async(
         });
     }
 
-    let chunk_size = if chunk_size == 0 {
-        DEFAULT_CHUNK_SIZE
-    } else {
-        chunk_size
-    };
-
+    let chunk_size = normalize_chunk_size(chunk_size);
     let mut records = Vec::with_capacity(n);
     let mut remaining = n;
 
@@ -234,11 +234,7 @@ pub async fn generate_records_arrow_async(
     // Validate schema upfront
     validate_schema_with_custom(schema, custom_providers)?;
 
-    let chunk_size = if chunk_size == 0 {
-        DEFAULT_CHUNK_SIZE
-    } else {
-        chunk_size
-    };
+    let chunk_size = normalize_chunk_size(chunk_size);
 
     // For small batches, just use the sync version
     if n <= chunk_size {
