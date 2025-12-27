@@ -901,6 +901,11 @@ def records_arrow_async(
 
     The schema format is identical to records().
 
+    Important: Chunking Affects Output
+        When n > chunk_size, the output differs from records_arrow() due to
+        column-major RNG consumption within each chunk. For identical results
+        to the sync version, set chunk_size >= n.
+
     Note:
         Requires pyarrow to be installed: pip install pyarrow
 

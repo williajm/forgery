@@ -363,6 +363,8 @@ All async methods accept an optional `chunk_size` parameter (default: 10,000) th
 
 **Note:** Async methods use a snapshot of the RNG state at call time. The main Faker instance's RNG is not advanced, so calling the same async method twice with the same seed produces identical results. For unique results across multiple async calls, use different seeds or different Faker instances.
 
+**Arrow async chunking caveat:** For `records_arrow_async()`, when `n > chunk_size`, the output differs from `records_arrow()` due to column-major RNG consumption within each chunk. If you need identical results to the sync version, set `chunk_size >= n`. The `records_async()` and `records_tuples_async()` methods always match their sync counterparts regardless of chunk size.
+
 ## Custom Providers
 
 Register your own data providers for domain-specific generation:

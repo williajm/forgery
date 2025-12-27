@@ -222,8 +222,14 @@ class TestRecordsArrowAsync:
         assert batch1.equals(batch2)
 
     @pytest.mark.asyncio
-    async def test_same_as_sync(self) -> None:
-        """Test that async produces same results as sync."""
+    async def test_same_as_sync_when_n_less_than_chunk_size(self) -> None:
+        """Test that async produces same results as sync when n <= chunk_size.
+
+        Note: This test uses n=100 with default chunk_size=10_000, so the async
+        method takes the fast path that delegates to sync. For n > chunk_size,
+        Arrow async produces different data due to column-major RNG consumption
+        within each chunk.
+        """
         fake1 = Faker()
         fake1.seed(42)
         fake2 = Faker()
@@ -244,6 +250,71 @@ class TestRecordsArrowAsync:
         batch = await fake.records_arrow_async(1000, {"name": "name"}, chunk_size=100)
 
         assert batch.num_rows == 1000
+
+    @pytest.mark.asyncio
+    async def test_arrow_chunked_differs_from_sync(self) -> None:
+        """Document that Arrow async with n > chunk_size differs from sync.
+
+        This is expected behavior: Arrow generates column-major, so chunking
+        changes RNG consumption order. This test locks in this behavior.
+        """
+        fake1 = Faker()
+        fake1.seed(42)
+        fake2 = Faker()
+        fake2.seed(42)
+
+        # n=200 with chunk_size=100 means 2 chunks
+        sync_batch = fake1.records_arrow(200, {"name": "name", "age": ("int", 18, 65)})
+        async_batch = await fake2.records_arrow_async(
+            200, {"name": "name", "age": ("int", 18, 65)}, chunk_size=100
+        )
+
+        # Row count is the same
+        assert sync_batch.num_rows == async_batch.num_rows == 200
+
+        # But the data is different due to column-major RNG consumption per chunk
+        assert not sync_batch.equals(async_batch)
+
+    @pytest.mark.asyncio
+    async def test_arrow_chunk_size_affects_output(self) -> None:
+        """Document that different chunk_size values produce different output.
+
+        This is expected behavior for n > chunk_size scenarios with multiple columns.
+        With only one column, chunk_size doesn't matter (no column interleaving).
+        """
+        fake1 = Faker()
+        fake1.seed(42)
+        fake2 = Faker()
+        fake2.seed(42)
+
+        # Need multiple columns to see chunking effects (column-major interleaving)
+        schema = {"name": "name", "age": ("int", 18, 65)}
+
+        # Same n, different chunk_size
+        batch1 = await fake1.records_arrow_async(300, schema, chunk_size=100)  # 3 chunks
+        batch2 = await fake2.records_arrow_async(300, schema, chunk_size=150)  # 2 chunks
+
+        assert batch1.num_rows == batch2.num_rows == 300
+        # Different chunking produces different data due to column-major interleaving
+        assert not batch1.equals(batch2)
+
+    @pytest.mark.asyncio
+    async def test_arrow_large_chunk_matches_sync(self) -> None:
+        """Verify that setting chunk_size >= n produces sync-identical results."""
+        fake1 = Faker()
+        fake1.seed(42)
+        fake2 = Faker()
+        fake2.seed(42)
+
+        n = 500
+        sync_batch = fake1.records_arrow(n, {"name": "name", "age": ("int", 18, 65)})
+        # chunk_size >= n avoids chunking
+        async_batch = await fake2.records_arrow_async(
+            n, {"name": "name", "age": ("int", 18, 65)}, chunk_size=1000
+        )
+
+        # With chunk_size >= n, async matches sync exactly
+        assert sync_batch.equals(async_batch)
 
     @pytest.mark.asyncio
     async def test_module_level_function(self) -> None:

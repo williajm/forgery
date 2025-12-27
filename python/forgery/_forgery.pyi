@@ -550,6 +550,11 @@ class Faker:
         This is the high-performance async path for generating structured data.
         Generates data in chunks and concatenates them into a single RecordBatch.
 
+        Important: Chunking Affects Output
+            When n > chunk_size, the output differs from records_arrow() due to
+            column-major RNG consumption within each chunk. For identical results
+            to the sync version, set chunk_size >= n.
+
         Note:
             Requires pyarrow to be installed: pip install pyarrow
 

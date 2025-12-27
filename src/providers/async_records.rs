@@ -12,9 +12,27 @@
 //!
 //! # Determinism
 //!
-//! Async generation preserves determinism: the same seed produces the same
-//! output regardless of chunk size, because chunks are generated sequentially
-//! within the async function (not in parallel).
+//! ## Dict and Tuple Generation
+//!
+//! For `records_async` and `records_tuples_async`, the same seed produces
+//! identical output regardless of chunk size. These methods generate data
+//! row-by-row, so chunking doesn't affect RNG consumption order.
+//!
+//! ## Arrow Generation
+//!
+//! **Important:** `records_arrow_async` may produce different results than
+//! the sync version when `n > chunk_size`. This is because:
+//!
+//! - Sync Arrow generates all data column-by-column (column-major order)
+//! - Async Arrow generates each chunk column-by-column, then concatenates
+//!
+//! When `n <= chunk_size`, async and sync produce identical results.
+//! When `n > chunk_size`, the RNG consumption order differs, producing
+//! different (but equally valid) random data.
+//!
+//! For reproducibility with the sync version, either:
+//! - Use `chunk_size >= n` to avoid chunking
+//! - Use the sync `records_arrow()` method directly
 
 use crate::locale::Locale;
 use crate::providers::custom::CustomProvider;
@@ -198,15 +216,22 @@ pub async fn generate_records_tuples_async(
 /// each chunk. For large datasets, this allows other async tasks to run
 /// during generation.
 ///
-/// # Note on Arrow Chunking
+/// # Important: Chunking Affects Output
 ///
-/// Unlike the dict/tuple versions which generate row-by-row, Arrow
-/// generation is inherently columnar. To maintain compatibility with the
-/// existing API (single RecordBatch return), we generate full RecordBatches
-/// for each chunk and then concatenate them at the end.
+/// Unlike the dict/tuple async versions which produce identical output to
+/// their sync counterparts, **Arrow async may produce different data when
+/// `n > chunk_size`**.
 ///
-/// For very large datasets where memory is a concern, consider using
-/// multiple smaller calls instead.
+/// This is because Arrow generation is column-major (all values for column A,
+/// then column B, etc.). When chunking:
+/// - Each chunk generates its own column-major data
+/// - Chunks are concatenated into the final RecordBatch
+/// - The RNG consumption order differs from a single sync call
+///
+/// When `n <= chunk_size`, the function takes a fast path that delegates
+/// directly to the sync implementation, producing identical results.
+///
+/// For reproducibility with the sync version, use `chunk_size >= n`.
 ///
 /// # Arguments
 ///

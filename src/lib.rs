@@ -2011,12 +2011,10 @@ impl Faker {
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
 
             // Convert to PyArrow RecordBatch
+            // Preserve original error type (e.g., ImportError if pyarrow missing)
             Python::attach(|py| {
                 let py_batch = PyRecordBatch::new(record_batch);
-                py_batch
-                    .into_pyarrow(py)
-                    .map(|bound| bound.unbind())
-                    .map_err(|e| PyValueError::new_err(e.to_string()))
+                py_batch.into_pyarrow(py).map(|bound| bound.unbind())
             })
         })
     }
