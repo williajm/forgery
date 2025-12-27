@@ -302,6 +302,67 @@ pandas, DuckDB, etc.).
 
 All simple types from the generators above are supported: `name`, `first_name`, `last_name`, `email`, `safe_email`, `free_email`, `phone`, `uuid`, `int`, `float`, `date`, `datetime`, `street_address`, `city`, `state`, `country`, `zip_code`, `address`, `company`, `job`, `catch_phrase`, `url`, `domain_name`, `ipv4`, `ipv6`, `mac_address`, `credit_card`, `iban`, `sentence`, `paragraph`, `text`, `color`, `hex_color`, `rgb_color`, `md5`, `sha256`.
 
+## Async Generation
+
+For large datasets (millions of records), async methods prevent blocking the Python event loop:
+
+### records_async()
+
+```python
+import asyncio
+from forgery import records_async, seed
+
+async def main():
+    seed(42)
+    records = await records_async(1_000_000, {
+        "id": "uuid",
+        "name": "name",
+        "email": "email",
+    })
+    print(f"Generated {len(records)} records")
+
+asyncio.run(main())
+```
+
+### records_tuples_async()
+
+```python
+import asyncio
+from forgery import records_tuples_async, seed
+
+async def main():
+    seed(42)
+    records = await records_tuples_async(1_000_000, {
+        "age": ("int", 18, 65),
+        "name": "name",
+    })
+    return records
+
+asyncio.run(main())
+```
+
+### records_arrow_async()
+
+```python
+import asyncio
+from forgery import records_arrow_async, seed
+
+async def main():
+    seed(42)
+    batch = await records_arrow_async(1_000_000, {
+        "id": "uuid",
+        "name": "name",
+        "salary": ("float", 30000.0, 150000.0),
+    })
+    return batch.to_pandas()
+
+asyncio.run(main())
+```
+
+All async methods accept an optional `chunk_size` parameter (default: 10,000) that controls how frequently control is yielded to the event loop. Smaller chunks yield more frequently but have slightly higher overhead.
+
+**Note:** Async methods use a snapshot of the RNG state at call time. The main Faker instance's RNG is not advanced, so calling the same async method twice with the same seed produces identical results. For unique results across multiple async calls, use different seeds or different Faker instances.
+
 ## Custom Providers
 
 Register your own data providers for domain-specific generation:
