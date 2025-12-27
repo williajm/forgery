@@ -4,7 +4,7 @@
 
 use crate::rng::ForgeryRng;
 
-/// Error type for number generation.
+/// Error type for integer range generation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RangeError {
     /// The invalid minimum value.
@@ -24,6 +24,27 @@ impl std::fmt::Display for RangeError {
 }
 
 impl std::error::Error for RangeError {}
+
+/// Error type for float range generation.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FloatRangeError {
+    /// The invalid minimum value.
+    pub min: f64,
+    /// The invalid maximum value.
+    pub max: f64,
+}
+
+impl std::fmt::Display for FloatRangeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "min ({}) must be less than or equal to max ({})",
+            self.min, self.max
+        )
+    }
+}
+
+impl std::error::Error for FloatRangeError {}
 
 /// Generate a batch of random integers within a range.
 ///
@@ -65,6 +86,50 @@ pub fn generate_integers(
 pub fn generate_integer(rng: &mut ForgeryRng, min: i64, max: i64) -> Result<i64, RangeError> {
     if min > max {
         return Err(RangeError { min, max });
+    }
+    Ok(rng.gen_range(min, max))
+}
+
+/// Generate a batch of random floats within a range.
+///
+/// # Arguments
+///
+/// * `rng` - The random number generator to use
+/// * `n` - Number of floats to generate
+/// * `min` - Minimum value (inclusive)
+/// * `max` - Maximum value (inclusive)
+///
+/// # Errors
+///
+/// Returns `FloatRangeError` if `min > max`.
+pub fn generate_floats(
+    rng: &mut ForgeryRng,
+    n: usize,
+    min: f64,
+    max: f64,
+) -> Result<Vec<f64>, FloatRangeError> {
+    if min > max {
+        return Err(FloatRangeError { min, max });
+    }
+
+    let mut floats = Vec::with_capacity(n);
+    for _ in 0..n {
+        floats.push(rng.gen_range(min, max));
+    }
+    Ok(floats)
+}
+
+/// Generate a single random float within a range.
+///
+/// More efficient than `generate_floats(rng, 1, min, max)` as it avoids Vec allocation.
+///
+/// # Errors
+///
+/// Returns `FloatRangeError` if `min > max`.
+#[inline]
+pub fn generate_float(rng: &mut ForgeryRng, min: f64, max: f64) -> Result<f64, FloatRangeError> {
+    if min > max {
+        return Err(FloatRangeError { min, max });
     }
     Ok(rng.gen_range(min, max))
 }
@@ -294,6 +359,167 @@ mod tests {
             "Different seeds should produce different integers"
         );
     }
+
+    // Float tests
+    #[test]
+    fn test_generate_floats_count() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let floats = generate_floats(&mut rng, 100, 0.0, 1.0).unwrap();
+        assert_eq!(floats.len(), 100);
+    }
+
+    #[test]
+    fn test_generate_floats_range() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let min = -50.0;
+        let max = 50.0;
+        let floats = generate_floats(&mut rng, 1000, min, max).unwrap();
+
+        for f in &floats {
+            assert!(
+                *f >= min && *f <= max,
+                "Value {} out of range [{}, {}]",
+                f,
+                min,
+                max
+            );
+        }
+    }
+
+    #[test]
+    fn test_generate_floats_same_min_max() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let floats = generate_floats(&mut rng, 10, 42.0, 42.0).unwrap();
+        for f in &floats {
+            assert!((*f - 42.0).abs() < f64::EPSILON);
+        }
+    }
+
+    #[test]
+    fn test_generate_floats_negative_range() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let floats = generate_floats(&mut rng, 100, -1000.0, -1.0).unwrap();
+        for f in &floats {
+            assert!(*f >= -1000.0 && *f <= -1.0);
+        }
+    }
+
+    #[test]
+    fn test_generate_floats_invalid_range_returns_error() {
+        let mut rng = ForgeryRng::new();
+        let result = generate_floats(&mut rng, 10, 100.0, 0.0);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!((err.min - 100.0).abs() < f64::EPSILON);
+        assert!(err.max.abs() < f64::EPSILON);
+        assert!(err.to_string().contains("min (100)"));
+    }
+
+    #[test]
+    fn test_float_deterministic_generation() {
+        let mut rng1 = ForgeryRng::new();
+        let mut rng2 = ForgeryRng::new();
+
+        rng1.seed(12345);
+        rng2.seed(12345);
+
+        let floats1 = generate_floats(&mut rng1, 100, 0.0, 1_000_000.0).unwrap();
+        let floats2 = generate_floats(&mut rng2, 100, 0.0, 1_000_000.0).unwrap();
+
+        assert_eq!(floats1, floats2);
+    }
+
+    #[test]
+    fn test_float_empty_batch() {
+        let mut rng = ForgeryRng::new();
+        let floats = generate_floats(&mut rng, 0, 0.0, 100.0).unwrap();
+        assert!(floats.is_empty());
+    }
+
+    #[test]
+    fn test_generate_float_single() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let f = generate_float(&mut rng, 0.0, 100.0).unwrap();
+        assert!(f >= 0.0 && f <= 100.0);
+    }
+
+    #[test]
+    fn test_generate_float_invalid_range() {
+        let mut rng = ForgeryRng::new();
+        let result = generate_float(&mut rng, 100.0, 0.0);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_float_range_error_display() {
+        let err = FloatRangeError {
+            min: 50.0,
+            max: 10.0,
+        };
+        assert!(err.to_string().contains("min (50)"));
+        assert!(err.to_string().contains("max (10)"));
+    }
+
+    #[test]
+    fn test_float_range_error_debug() {
+        let err = FloatRangeError {
+            min: 50.0,
+            max: 10.0,
+        };
+        let debug_str = format!("{:?}", err);
+        assert!(debug_str.contains("FloatRangeError"));
+    }
+
+    #[test]
+    fn test_float_range_error_clone() {
+        let err1 = FloatRangeError {
+            min: 50.0,
+            max: 10.0,
+        };
+        let err2 = err1.clone();
+        assert_eq!(err1, err2);
+    }
+
+    #[test]
+    fn test_float_fractional_values() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let floats = generate_floats(&mut rng, 100, 0.0, 1.0).unwrap();
+        // At least some values should be fractional (not 0.0 or 1.0)
+        let fractional_count = floats
+            .iter()
+            .filter(|&&f| f > 0.01 && f < 0.99)
+            .count();
+        assert!(fractional_count > 50, "Should have many fractional values");
+    }
+
+    #[test]
+    fn test_float_different_seeds_different_results() {
+        let mut rng1 = ForgeryRng::new();
+        let mut rng2 = ForgeryRng::new();
+
+        rng1.seed(1);
+        rng2.seed(2);
+
+        let floats1 = generate_floats(&mut rng1, 100, 0.0, 1_000_000.0).unwrap();
+        let floats2 = generate_floats(&mut rng2, 100, 0.0, 1_000_000.0).unwrap();
+
+        assert_ne!(
+            floats1, floats2,
+            "Different seeds should produce different floats"
+        );
+    }
 }
 
 #[cfg(test)]
@@ -373,6 +599,64 @@ mod proptest_tests {
             for i in ints {
                 prop_assert_eq!(i, value);
             }
+        }
+
+        // Float property tests
+
+        /// Property: float batch size is always respected
+        #[test]
+        fn prop_float_batch_size_respected(n in 0usize..1000) {
+            let mut rng = ForgeryRng::new();
+            rng.seed(42);
+
+            let floats = generate_floats(&mut rng, n, 0.0, 1.0).unwrap();
+            prop_assert_eq!(floats.len(), n);
+        }
+
+        /// Property: all float values are within the specified range
+        #[test]
+        fn prop_float_values_in_range(
+            n in 1usize..100,
+            min in -1_000_000.0f64..1_000_000.0f64,
+            delta in 0.0f64..1_000_000.0f64
+        ) {
+            let max = min + delta;
+            let mut rng = ForgeryRng::new();
+            rng.seed(42);
+
+            let floats = generate_floats(&mut rng, n, min, max).unwrap();
+            for f in floats {
+                prop_assert!(f >= min && f <= max, "Value {} not in range [{}, {}]", f, min, max);
+            }
+        }
+
+        /// Property: same seed produces same float output
+        #[test]
+        fn prop_float_seed_determinism(
+            seed_val in any::<u64>(),
+            n in 1usize..100,
+            min in -1000.0f64..0.0f64,
+            max in 0.0f64..1000.0f64
+        ) {
+            let mut rng1 = ForgeryRng::new();
+            let mut rng2 = ForgeryRng::new();
+
+            rng1.seed(seed_val);
+            rng2.seed(seed_val);
+
+            let floats1 = generate_floats(&mut rng1, n, min, max).unwrap();
+            let floats2 = generate_floats(&mut rng2, n, min, max).unwrap();
+
+            prop_assert_eq!(floats1, floats2);
+        }
+
+        /// Property: invalid float range always returns error
+        #[test]
+        fn prop_float_invalid_range_error(min in 1.0f64..1_000_000.0, delta in 1.0f64..1000.0) {
+            let max = min - delta;
+            let mut rng = ForgeryRng::new();
+            let result = generate_floats(&mut rng, 10, min, max);
+            prop_assert!(result.is_err());
         }
     }
 }
