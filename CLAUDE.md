@@ -25,7 +25,7 @@ forgery/
 │       ├── names.rs        # Name generation
 │       ├── internet.rs     # Email generation
 │       ├── address.rs      # Address generation
-│       ├── records.rs      # Structured data generation (records/tuples)
+│       ├── records.rs      # Structured data generation (records/tuples/arrow)
 │       ├── custom.rs       # Custom provider support
 │       └── ...             # Other providers
 ├── python/forgery/         # Python wrapper and type stubs

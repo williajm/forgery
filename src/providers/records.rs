@@ -705,6 +705,200 @@ pub fn generate_records_tuples_with_custom(
     Ok(records)
 }
 
+// ============================================================================
+// Arrow/Polars Integration
+// ============================================================================
+
+use arrow_array::{
+    ArrayRef, Float64Array, Int64Array, RecordBatch, StringArray, StructArray, UInt8Array,
+};
+use arrow_buffer::NullBuffer;
+use arrow_schema::{DataType, Field, Schema};
+use std::sync::Arc;
+
+/// Determine the Arrow DataType for a given FieldSpec.
+///
+/// Most field types map to Utf8 (strings), but integers and floats
+/// have their own types, and RGB colors are stored as a Struct.
+pub fn field_spec_to_arrow_type(spec: &FieldSpec) -> DataType {
+    match spec {
+        // Integer types
+        FieldSpec::Int | FieldSpec::IntRange { .. } => DataType::Int64,
+
+        // Float types
+        FieldSpec::Float | FieldSpec::FloatRange { .. } => DataType::Float64,
+
+        // RGB colors are stored as a struct with r, g, b uint8 fields
+        FieldSpec::RgbColor => DataType::Struct(
+            vec![
+                Field::new("r", DataType::UInt8, false),
+                Field::new("g", DataType::UInt8, false),
+                Field::new("b", DataType::UInt8, false),
+            ]
+            .into(),
+        ),
+
+        // All other types produce strings
+        _ => DataType::Utf8,
+    }
+}
+
+/// Generate records as an Arrow RecordBatch.
+///
+/// This is the high-performance path for generating structured data
+/// suitable for use with PyArrow, Polars, and other Arrow-compatible tools.
+///
+/// # Performance
+///
+/// This function generates data in columnar format, which is more efficient
+/// for Arrow than row-by-row generation. Each column is built as a contiguous
+/// array, avoiding Python object overhead.
+pub fn generate_records_arrow(
+    rng: &mut ForgeryRng,
+    locale: Locale,
+    n: usize,
+    schema: &BTreeMap<String, FieldSpec>,
+) -> Result<RecordBatch, SchemaError> {
+    // Delegate to the custom-aware version with empty providers map
+    generate_records_arrow_with_custom(rng, locale, n, schema, &HashMap::new())
+}
+
+/// Generate records as an Arrow RecordBatch, with custom provider support.
+///
+/// This variant of generate_records_arrow() can handle FieldSpec::Custom variants
+/// by looking up providers in the provided custom_providers map.
+pub fn generate_records_arrow_with_custom(
+    rng: &mut ForgeryRng,
+    locale: Locale,
+    n: usize,
+    schema: &BTreeMap<String, FieldSpec>,
+    custom_providers: &HashMap<String, CustomProvider>,
+) -> Result<RecordBatch, SchemaError> {
+    // Validate schema upfront (even when n=0), including custom provider existence
+    validate_schema_with_custom(schema, custom_providers)?;
+
+    // Build Arrow schema and collect field specs
+    let mut arrow_fields: Vec<Field> = Vec::with_capacity(schema.len());
+    let mut field_specs: Vec<&FieldSpec> = Vec::with_capacity(schema.len());
+
+    for (name, spec) in schema.iter() {
+        let arrow_type = field_spec_to_arrow_type(spec);
+        arrow_fields.push(Field::new(name, arrow_type, false));
+        field_specs.push(spec);
+    }
+
+    let arrow_schema = Arc::new(Schema::new(arrow_fields));
+
+    // Generate columns
+    let mut columns: Vec<ArrayRef> = Vec::with_capacity(schema.len());
+
+    for spec in field_specs.iter() {
+        let column = generate_arrow_column(rng, locale, n, spec, custom_providers)?;
+        columns.push(column);
+    }
+
+    // Build RecordBatch
+    RecordBatch::try_new(arrow_schema, columns).map_err(|e| SchemaError {
+        message: format!("Failed to create RecordBatch: {}", e),
+    })
+}
+
+/// Generate an Arrow array for a single column based on the field spec.
+fn generate_arrow_column(
+    rng: &mut ForgeryRng,
+    locale: Locale,
+    n: usize,
+    spec: &FieldSpec,
+    custom_providers: &HashMap<String, CustomProvider>,
+) -> Result<ArrayRef, SchemaError> {
+    match spec {
+        // Integer types -> Int64Array
+        // Note: Ranges are validated in validate_spec() before generation, so these can't fail
+        FieldSpec::Int => {
+            let values: Vec<i64> = (0..n)
+                .map(|_| {
+                    numbers::generate_integer(rng, 0, 100)
+                        .expect("default range 0-100 is always valid")
+                })
+                .collect();
+            Ok(Arc::new(Int64Array::from(values)))
+        }
+        FieldSpec::IntRange { min, max } => {
+            let values: Vec<i64> = (0..n)
+                .map(|_| {
+                    numbers::generate_integer(rng, *min, *max)
+                        .expect("range validated in validate_spec")
+                })
+                .collect();
+            Ok(Arc::new(Int64Array::from(values)))
+        }
+
+        // Float types -> Float64Array
+        // Note: Ranges are validated in validate_spec() before generation, so these can't fail
+        FieldSpec::Float => {
+            let values: Vec<f64> = (0..n)
+                .map(|_| {
+                    numbers::generate_float(rng, 0.0, 1.0)
+                        .expect("default range 0.0-1.0 is always valid")
+                })
+                .collect();
+            Ok(Arc::new(Float64Array::from(values)))
+        }
+        FieldSpec::FloatRange { min, max } => {
+            let values: Vec<f64> = (0..n)
+                .map(|_| {
+                    numbers::generate_float(rng, *min, *max)
+                        .expect("range validated in validate_spec")
+                })
+                .collect();
+            Ok(Arc::new(Float64Array::from(values)))
+        }
+
+        // RGB color -> Struct with r, g, b UInt8 fields
+        FieldSpec::RgbColor => {
+            let mut r_values: Vec<u8> = Vec::with_capacity(n);
+            let mut g_values: Vec<u8> = Vec::with_capacity(n);
+            let mut b_values: Vec<u8> = Vec::with_capacity(n);
+
+            for _ in 0..n {
+                let (r, g, b) = colors::generate_rgb_color(rng);
+                r_values.push(r);
+                g_values.push(g);
+                b_values.push(b);
+            }
+
+            let r_array = Arc::new(UInt8Array::from(r_values)) as ArrayRef;
+            let g_array = Arc::new(UInt8Array::from(g_values)) as ArrayRef;
+            let b_array = Arc::new(UInt8Array::from(b_values)) as ArrayRef;
+
+            let struct_fields: Vec<Field> = vec![
+                Field::new("r", DataType::UInt8, false),
+                Field::new("g", DataType::UInt8, false),
+                Field::new("b", DataType::UInt8, false),
+            ];
+
+            let struct_array = StructArray::new(
+                struct_fields.into(),
+                vec![r_array, g_array, b_array],
+                None::<NullBuffer>,
+            );
+
+            Ok(Arc::new(struct_array))
+        }
+
+        // All other types produce string arrays
+        _ => {
+            let values: Result<Vec<String>, SchemaError> = (0..n)
+                .map(|_| {
+                    generate_value_with_custom(rng, locale, spec, custom_providers)
+                        .map(|v| v.as_string())
+                })
+                .collect();
+            Ok(Arc::new(StringArray::from(values?)))
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1079,6 +1273,304 @@ mod tests {
         let result = generate_records_tuples(&mut rng, Locale::EnUS, 0, &schema, &field_order);
         assert!(result.is_err());
         assert!(result.unwrap_err().message.contains("empty"));
+    }
+
+    // Arrow-specific tests
+    #[test]
+    fn test_generate_records_arrow_count() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let schema = create_test_schema();
+        let batch = generate_records_arrow(&mut rng, Locale::EnUS, 100, &schema).unwrap();
+
+        assert_eq!(batch.num_rows(), 100);
+    }
+
+    #[test]
+    fn test_generate_records_arrow_column_count() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let schema = create_test_schema();
+        let batch = generate_records_arrow(&mut rng, Locale::EnUS, 10, &schema).unwrap();
+
+        assert_eq!(batch.num_columns(), 5);
+    }
+
+    #[test]
+    fn test_generate_records_arrow_deterministic() {
+        let mut rng1 = ForgeryRng::new();
+        let mut rng2 = ForgeryRng::new();
+
+        rng1.seed(12345);
+        rng2.seed(12345);
+
+        let schema = create_test_schema();
+        let batch1 = generate_records_arrow(&mut rng1, Locale::EnUS, 50, &schema).unwrap();
+        let batch2 = generate_records_arrow(&mut rng2, Locale::EnUS, 50, &schema).unwrap();
+
+        // Compare the actual data in the batches
+        assert_eq!(batch1.num_rows(), batch2.num_rows());
+        assert_eq!(batch1.num_columns(), batch2.num_columns());
+        for i in 0..batch1.num_columns() {
+            assert_eq!(batch1.column(i).as_ref(), batch2.column(i).as_ref());
+        }
+    }
+
+    #[test]
+    fn test_generate_records_arrow_empty() {
+        let mut rng = ForgeryRng::new();
+
+        let schema = create_test_schema();
+        let batch = generate_records_arrow(&mut rng, Locale::EnUS, 0, &schema).unwrap();
+
+        assert_eq!(batch.num_rows(), 0);
+        assert_eq!(batch.num_columns(), 5);
+    }
+
+    #[test]
+    fn test_generate_records_arrow_schema_validation_when_n_is_zero() {
+        let mut rng = ForgeryRng::new();
+
+        let mut schema = BTreeMap::new();
+        schema.insert("age".to_string(), FieldSpec::IntRange { min: 100, max: 10 });
+
+        let result = generate_records_arrow(&mut rng, Locale::EnUS, 0, &schema);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().message.contains("Invalid int range"));
+    }
+
+    #[test]
+    fn test_field_spec_to_arrow_type_int() {
+        let spec = FieldSpec::Int;
+        let arrow_type = field_spec_to_arrow_type(&spec);
+        assert_eq!(arrow_type, DataType::Int64);
+
+        let spec_range = FieldSpec::IntRange { min: 0, max: 100 };
+        let arrow_type_range = field_spec_to_arrow_type(&spec_range);
+        assert_eq!(arrow_type_range, DataType::Int64);
+    }
+
+    #[test]
+    fn test_field_spec_to_arrow_type_float() {
+        let spec = FieldSpec::Float;
+        let arrow_type = field_spec_to_arrow_type(&spec);
+        assert_eq!(arrow_type, DataType::Float64);
+
+        let spec_range = FieldSpec::FloatRange { min: 0.0, max: 1.0 };
+        let arrow_type_range = field_spec_to_arrow_type(&spec_range);
+        assert_eq!(arrow_type_range, DataType::Float64);
+    }
+
+    #[test]
+    fn test_field_spec_to_arrow_type_string() {
+        let spec = FieldSpec::Name;
+        let arrow_type = field_spec_to_arrow_type(&spec);
+        assert_eq!(arrow_type, DataType::Utf8);
+    }
+
+    #[test]
+    fn test_field_spec_to_arrow_type_rgb() {
+        let spec = FieldSpec::RgbColor;
+        let arrow_type = field_spec_to_arrow_type(&spec);
+        assert!(matches!(arrow_type, DataType::Struct(_)));
+    }
+
+    #[test]
+    fn test_generate_arrow_column_int() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let mut schema = BTreeMap::new();
+        schema.insert("value".to_string(), FieldSpec::Int);
+
+        let batch = generate_records_arrow(&mut rng, Locale::EnUS, 10, &schema).unwrap();
+        assert_eq!(batch.num_rows(), 10);
+
+        let column = batch.column(0);
+        assert_eq!(*column.data_type(), DataType::Int64);
+    }
+
+    #[test]
+    fn test_generate_arrow_column_int_range() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let mut schema = BTreeMap::new();
+        schema.insert(
+            "value".to_string(),
+            FieldSpec::IntRange { min: 10, max: 20 },
+        );
+
+        let batch = generate_records_arrow(&mut rng, Locale::EnUS, 100, &schema).unwrap();
+
+        let column = batch
+            .column(0)
+            .as_any()
+            .downcast_ref::<Int64Array>()
+            .unwrap();
+
+        for i in 0..100 {
+            let val = column.value(i);
+            assert!((10..=20).contains(&val), "Value {} out of range", val);
+        }
+    }
+
+    #[test]
+    fn test_generate_arrow_column_float() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let mut schema = BTreeMap::new();
+        schema.insert("value".to_string(), FieldSpec::Float);
+
+        let batch = generate_records_arrow(&mut rng, Locale::EnUS, 10, &schema).unwrap();
+        assert_eq!(batch.num_rows(), 10);
+
+        let column = batch.column(0);
+        assert_eq!(*column.data_type(), DataType::Float64);
+    }
+
+    #[test]
+    fn test_generate_arrow_column_float_range() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let mut schema = BTreeMap::new();
+        schema.insert(
+            "value".to_string(),
+            FieldSpec::FloatRange {
+                min: 1.0,
+                max: 10.0,
+            },
+        );
+
+        let batch = generate_records_arrow(&mut rng, Locale::EnUS, 100, &schema).unwrap();
+
+        let column = batch
+            .column(0)
+            .as_any()
+            .downcast_ref::<Float64Array>()
+            .unwrap();
+
+        for i in 0..100 {
+            let val = column.value(i);
+            assert!((1.0..=10.0).contains(&val), "Value {} out of range", val);
+        }
+    }
+
+    #[test]
+    fn test_generate_arrow_column_rgb_color() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let mut schema = BTreeMap::new();
+        schema.insert("color".to_string(), FieldSpec::RgbColor);
+
+        let batch = generate_records_arrow(&mut rng, Locale::EnUS, 10, &schema).unwrap();
+        assert_eq!(batch.num_rows(), 10);
+
+        let column = batch.column(0);
+        assert!(matches!(column.data_type(), DataType::Struct(_)));
+    }
+
+    #[test]
+    fn test_generate_arrow_column_string_types() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let mut schema = BTreeMap::new();
+        schema.insert("name".to_string(), FieldSpec::Name);
+        schema.insert("email".to_string(), FieldSpec::Email);
+        schema.insert("uuid".to_string(), FieldSpec::Uuid);
+
+        let batch = generate_records_arrow(&mut rng, Locale::EnUS, 10, &schema).unwrap();
+        assert_eq!(batch.num_rows(), 10);
+        assert_eq!(batch.num_columns(), 3);
+
+        // All columns should be string type
+        for i in 0..3 {
+            assert_eq!(*batch.column(i).data_type(), DataType::Utf8);
+        }
+    }
+
+    #[test]
+    fn test_generate_arrow_with_custom_provider() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let mut custom_providers = HashMap::new();
+        custom_providers.insert(
+            "fruit".to_string(),
+            CustomProvider::Uniform(vec![
+                "apple".to_string(),
+                "banana".to_string(),
+                "cherry".to_string(),
+            ]),
+        );
+
+        let mut schema = BTreeMap::new();
+        schema.insert("fruit".to_string(), FieldSpec::Custom("fruit".to_string()));
+
+        let batch = generate_records_arrow_with_custom(
+            &mut rng,
+            Locale::EnUS,
+            10,
+            &schema,
+            &custom_providers,
+        )
+        .unwrap();
+
+        assert_eq!(batch.num_rows(), 10);
+
+        let column = batch
+            .column(0)
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .unwrap();
+
+        for i in 0..10 {
+            let val = column.value(i);
+            assert!(
+                val == "apple" || val == "banana" || val == "cherry",
+                "Unexpected value: {}",
+                val
+            );
+        }
+    }
+
+    #[test]
+    fn test_generate_arrow_choice_field() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let mut schema = BTreeMap::new();
+        schema.insert(
+            "status".to_string(),
+            FieldSpec::Choice(vec![
+                "active".to_string(),
+                "inactive".to_string(),
+                "pending".to_string(),
+            ]),
+        );
+
+        let batch = generate_records_arrow(&mut rng, Locale::EnUS, 100, &schema).unwrap();
+
+        let column = batch
+            .column(0)
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .unwrap();
+
+        for i in 0..100 {
+            let val = column.value(i);
+            assert!(
+                val == "active" || val == "inactive" || val == "pending",
+                "Unexpected value: {}",
+                val
+            );
+        }
     }
 }
 

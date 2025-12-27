@@ -19,6 +19,12 @@ pyo3 = "0.27"
 rand = "0.9"
 rand_chacha = "0.9"
 
+# Arrow integration for records_arrow()
+arrow-array = "57"
+arrow-buffer = "57"
+arrow-schema = "57"
+pyo3-arrow = "0.15"
+
 [features]
 default = []
 extension-module = ["pyo3/extension-module"]

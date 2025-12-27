@@ -18,7 +18,10 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustfmt, clippy
+          components: rustfmt, clippy, llvm-tools-preview
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
 
       - name: Cache cargo registry
         uses: actions/cache@v4
@@ -39,8 +42,16 @@ jobs:
       - name: Check benchmarks compile
         run: cargo check --benches
 
-      - name: Run tests
-        run: cargo test
+      - name: Run tests with coverage
+        run: cargo llvm-cov --lcov --output-path rust-lcov.info
+
+      - name: Upload Rust coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: rust-lcov.info
+          flags: rust
+          fail_ci_if_error: false
 
   python-test:
     runs-on: ubuntu-latest
@@ -94,12 +105,13 @@ jobs:
           source .venv/bin/activate
           pytest --cov=forgery --cov-report=xml --cov-fail-under=90
 
-      - name: Upload coverage to Codecov
+      - name: Upload Python coverage to Codecov
         if: matrix.python-version == '3.11'
         uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage.xml
+          flags: python
           fail_ci_if_error: false
 
   python-check:
@@ -129,6 +141,14 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: Generate Rust coverage
+        run: cargo llvm-cov --lcov --output-path rust-lcov.info
 
       - name: Create virtual environment
         run: python -m venv .venv
@@ -140,7 +160,7 @@ jobs:
           pip install -e ".[dev]"
           maturin develop
 
-      - name: Generate coverage report
+      - name: Generate Python coverage report
         run: |
           source .venv/bin/activate
           pytest --cov=forgery --cov-report=xml

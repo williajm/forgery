@@ -250,6 +250,45 @@ data = records_tuples(1000, {
 # data[0] = (50, "Ryan Grant")  # (age, name) - alphabetical order
 ```
 
+### records_arrow()
+
+Returns a PyArrow RecordBatch for high-performance data processing:
+
+```python
+import pyarrow as pa
+from forgery import records_arrow, seed
+
+seed(42)
+batch = records_arrow(100_000, {
+    "id": "uuid",
+    "name": "name",
+    "age": ("int", 18, 65),
+    "salary": ("float", 30000.0, 150000.0),
+})
+
+# batch is a pyarrow.RecordBatch
+print(batch.num_rows)     # 100000
+print(batch.num_columns)  # 4
+print(batch.schema)
+# age: int64 not null
+# id: string not null
+# name: string not null
+# salary: double not null
+
+# Convert to pandas DataFrame
+df = batch.to_pandas()
+
+# Or to Polars DataFrame
+import polars as pl
+df_polars = pl.from_arrow(batch)
+```
+
+**Note:** Requires `pyarrow` to be installed: `pip install pyarrow`
+
+The `records_arrow()` function generates data in columnar format, which is more efficient
+for large batches and integrates seamlessly with the Arrow ecosystem (PyArrow, Polars,
+pandas, DuckDB, etc.).
+
 ### Schema Field Types
 
 | Type | Syntax | Example |
