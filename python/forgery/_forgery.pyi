@@ -1,6 +1,10 @@
 """Type stubs for the Rust extension module."""
 
 import builtins
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import pyarrow  # type: ignore[import-untyped]
 
 # Records schema types (matching forgery/__init__.pyi for consistency)
 FieldValue = str | int | float | tuple[int, int, int]
@@ -461,6 +465,32 @@ class Faker:
 
         Raises:
             ValueError: If n exceeds the maximum batch size or schema is invalid.
+        """
+        ...
+
+    def records_arrow(self, n: int, schema: Schema) -> pyarrow.RecordBatch:
+        """Generate structured records as a PyArrow RecordBatch.
+
+        This is the high-performance path for generating structured data,
+        suitable for use with PyArrow, Polars, and other Arrow-compatible tools.
+
+        The data is generated in columnar format and returned as a PyArrow
+        RecordBatch, which can be converted to pandas DataFrames, Polars
+        DataFrames, or used directly with Arrow-based processing tools.
+
+        Note:
+            Requires pyarrow to be installed: pip install pyarrow
+
+        Args:
+            n: Number of records to generate.
+            schema: Dictionary mapping field names to type specifications.
+
+        Returns:
+            A pyarrow.RecordBatch with the generated data.
+
+        Raises:
+            ValueError: If n exceeds the maximum batch size or schema is invalid.
+            ImportError: If pyarrow is not installed.
         """
         ...
 

@@ -1,6 +1,11 @@
 """Type stubs for the forgery package."""
 
+from typing import TYPE_CHECKING
+
 from forgery._forgery import Faker as Faker
+
+if TYPE_CHECKING:
+    import pyarrow  # type: ignore[import-untyped]
 
 __all__: list[str]
 __version__: str
@@ -282,6 +287,33 @@ def records_tuples(n: int, schema: Schema) -> list[tuple[FieldValue, ...]]:
     Raises:
         ValueError: If n exceeds the maximum batch size (10 million)
             or if the schema contains invalid specifications.
+    """
+    ...
+
+def records_arrow(n: int, schema: Schema) -> pyarrow.RecordBatch:
+    """Generate structured records as a PyArrow RecordBatch.
+
+    This is the high-performance path for generating structured data,
+    suitable for use with PyArrow, Polars, and other Arrow-compatible tools.
+
+    The data is generated in columnar format and returned as a PyArrow
+    RecordBatch, which can be converted to pandas DataFrames, Polars
+    DataFrames, or used directly with Arrow-based processing tools.
+
+    Note:
+        Requires pyarrow to be installed: pip install pyarrow
+
+    Args:
+        n: Number of records to generate.
+        schema: Dictionary mapping field names to type specifications.
+
+    Returns:
+        A pyarrow.RecordBatch with the generated data.
+
+    Raises:
+        ValueError: If n exceeds the maximum batch size (10 million)
+            or if the schema contains invalid specifications.
+        ImportError: If pyarrow is not installed.
     """
     ...
 

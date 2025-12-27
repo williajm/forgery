@@ -43,7 +43,12 @@ Example:
     >>> german_fake.names(10)  # German names
 """
 
+from typing import TYPE_CHECKING
+
 from forgery._forgery import Faker
+
+if TYPE_CHECKING:
+    import pyarrow
 
 __all__ = [
     "Faker",
@@ -109,6 +114,7 @@ __all__ = [
     "phone_number",
     "phone_numbers",
     "records",
+    "records_arrow",
     "records_tuples",
     "remove_provider",
     "rgb_color",
@@ -752,6 +758,51 @@ def records_tuples(n: int, schema: Schema) -> list[tuple[object, ...]]:
         2
     """
     return fake.records_tuples(n, schema)
+
+
+def records_arrow(n: int, schema: Schema) -> "pyarrow.RecordBatch":
+    """Generate structured records as a PyArrow RecordBatch.
+
+    This is the high-performance path for generating structured data,
+    suitable for use with PyArrow, Polars, and other Arrow-compatible tools.
+
+    The data is generated in columnar format and returned as a PyArrow
+    RecordBatch, which can be converted to pandas DataFrames, Polars
+    DataFrames, or used directly with Arrow-based processing tools.
+
+    The schema format is identical to records().
+
+    Note:
+        Requires pyarrow to be installed: pip install pyarrow
+
+    Args:
+        n: Number of records to generate.
+        schema: Dictionary mapping field names to type specifications.
+
+    Returns:
+        A pyarrow.RecordBatch with the generated data.
+
+    Example:
+        >>> import pyarrow as pa
+        >>> from forgery import records_arrow, seed
+        >>> seed(42)
+        >>> batch = records_arrow(1000, {
+        ...     "id": "uuid",
+        ...     "name": "name",
+        ...     "age": ("int", 18, 65),
+        ...     "salary": ("float", 30000.0, 150000.0),
+        ... })
+        >>> batch.num_rows
+        1000
+        >>> batch.num_columns
+        4
+        >>> # Convert to pandas
+        >>> df = batch.to_pandas()
+        >>> # Convert to polars
+        >>> import polars as pl
+        >>> df_polars = pl.from_arrow(batch)
+    """
+    return fake.records_arrow(n, schema)
 
 
 # === Custom Providers ===

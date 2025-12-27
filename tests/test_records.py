@@ -1,8 +1,16 @@
-"""Tests for structured data generation (records and records_tuples)."""
+"""Tests for structured data generation (records, records_tuples, and records_arrow)."""
 
 import pytest
 
-from forgery import Faker, records, records_tuples, seed
+from forgery import Faker, records, records_arrow, records_tuples, seed
+
+# Check if pyarrow is available for arrow tests
+try:
+    import pyarrow as pa
+
+    HAS_PYARROW = True
+except ImportError:
+    HAS_PYARROW = False
 
 
 class TestRecords:
@@ -408,3 +416,211 @@ class TestSchemaPreflightValidation:
         """Schema validation should happen for tuples even when n=0."""
         with pytest.raises(ValueError, match="Invalid int range"):
             records_tuples(0, {"age": ("int", 100, 10)})
+
+
+@pytest.mark.skipif(not HAS_PYARROW, reason="pyarrow not installed")
+class TestRecordsArrow:
+    """Tests for records_arrow() function."""
+
+    def test_records_arrow_returns_record_batch(self) -> None:
+        """records_arrow() should return a PyArrow RecordBatch."""
+        seed(42)
+        result = records_arrow(5, {"name": "name", "email": "email"})
+        assert isinstance(result, pa.RecordBatch)
+        assert result.num_rows == 5
+        assert result.num_columns == 2
+
+    def test_records_arrow_has_all_fields(self) -> None:
+        """RecordBatch should have all schema fields as columns."""
+        seed(42)
+        schema = {
+            "id": "uuid",
+            "name": "name",
+            "email": "email",
+        }
+        result = records_arrow(10, schema)
+        column_names = set(result.schema.names)
+        assert column_names == {"id", "name", "email"}
+
+    def test_records_arrow_empty_batch(self) -> None:
+        """Empty batch should return RecordBatch with 0 rows."""
+        result = records_arrow(0, {"name": "name"})
+        assert isinstance(result, pa.RecordBatch)
+        assert result.num_rows == 0
+
+    def test_records_arrow_deterministic(self) -> None:
+        """Same seed should produce identical RecordBatches."""
+        schema = {"id": "uuid", "name": "name"}
+
+        seed(42)
+        result1 = records_arrow(10, schema)
+
+        seed(42)
+        result2 = records_arrow(10, schema)
+
+        assert result1.equals(result2)
+
+    def test_records_arrow_int_type(self) -> None:
+        """Integer fields should produce Int64 columns."""
+        seed(42)
+        result = records_arrow(10, {"age": ("int", 18, 65)})
+        assert result.schema.field("age").type == pa.int64()
+
+        # Verify values are in range
+        ages = result.column("age").to_pylist()
+        for age in ages:
+            assert 18 <= age <= 65
+
+    def test_records_arrow_float_type(self) -> None:
+        """Float fields should produce Float64 columns."""
+        seed(42)
+        result = records_arrow(10, {"price": ("float", 10.0, 100.0)})
+        assert result.schema.field("price").type == pa.float64()
+
+        # Verify values are in range
+        prices = result.column("price").to_pylist()
+        for price in prices:
+            assert 10.0 <= price <= 100.0
+
+    def test_records_arrow_string_type(self) -> None:
+        """String fields should produce Utf8 columns."""
+        seed(42)
+        result = records_arrow(10, {"name": "name", "email": "email"})
+        assert result.schema.field("name").type == pa.string()
+        assert result.schema.field("email").type == pa.string()
+
+    def test_records_arrow_rgb_color_type(self) -> None:
+        """RGB color fields should produce Struct columns with r, g, b fields."""
+        seed(42)
+        result = records_arrow(10, {"color": "rgb_color"})
+
+        # Check it's a struct type
+        color_type = result.schema.field("color").type
+        assert pa.types.is_struct(color_type)
+
+        # Check struct fields
+        assert color_type.field(0).name == "r"
+        assert color_type.field(1).name == "g"
+        assert color_type.field(2).name == "b"
+        assert color_type.field(0).type == pa.uint8()
+        assert color_type.field(1).type == pa.uint8()
+        assert color_type.field(2).type == pa.uint8()
+
+    def test_records_arrow_all_simple_types(self) -> None:
+        """Test all simple type specifications work with Arrow."""
+        seed(42)
+        schema = {
+            "address": "address",
+            "city": "city",
+            "color": "color",
+            "company": "company",
+            "country": "country",
+            "credit_card": "credit_card",
+            "date": "date",
+            "datetime": "datetime",
+            "domain_name": "domain_name",
+            "email": "email",
+            "first_name": "first_name",
+            "free_email": "free_email",
+            "hex_color": "hex_color",
+            "iban": "iban",
+            "ipv4": "ipv4",
+            "ipv6": "ipv6",
+            "job": "job",
+            "last_name": "last_name",
+            "mac_address": "mac_address",
+            "md5": "md5",
+            "name": "name",
+            "paragraph": "paragraph",
+            "phone": "phone",
+            "safe_email": "safe_email",
+            "sentence": "sentence",
+            "sha256": "sha256",
+            "state": "state",
+            "street_address": "street_address",
+            "text": "text",
+            "url": "url",
+            "uuid": "uuid",
+            "zip_code": "zip_code",
+        }
+        result = records_arrow(5, schema)
+        assert result.num_rows == 5
+        assert result.num_columns == len(schema)
+
+    def test_records_arrow_choice(self) -> None:
+        """Choice fields should work correctly."""
+        seed(42)
+        options = ["active", "pending", "closed"]
+        result = records_arrow(100, {"status": ("choice", options)})
+
+        statuses = result.column("status").to_pylist()
+        for status in statuses:
+            assert status in options
+
+    def test_records_arrow_faker_instance(self) -> None:
+        """Test records_arrow works with Faker instance."""
+        fake = Faker()
+        fake.seed(42)
+        result = fake.records_arrow(10, {"name": "name"})
+        assert isinstance(result, pa.RecordBatch)
+        assert result.num_rows == 10
+
+    def test_records_arrow_faker_deterministic(self) -> None:
+        """Test Faker instance determinism."""
+        fake = Faker()
+
+        fake.seed(123)
+        result1 = fake.records_arrow(10, {"id": "uuid"})
+
+        fake.seed(123)
+        result2 = fake.records_arrow(10, {"id": "uuid"})
+
+        assert result1.equals(result2)
+
+    def test_records_arrow_schema_validation(self) -> None:
+        """Schema validation should happen for Arrow output."""
+        with pytest.raises(ValueError, match="Invalid int range"):
+            records_arrow(10, {"age": ("int", 100, 10)})
+
+    def test_records_arrow_validates_schema_when_n_is_zero(self) -> None:
+        """Schema validation should happen for Arrow even when n=0."""
+        with pytest.raises(ValueError, match="Invalid int range"):
+            records_arrow(0, {"age": ("int", 100, 10)})
+
+    def test_records_arrow_mixed_types(self) -> None:
+        """Test batch with mixed type columns."""
+        seed(42)
+        schema = {
+            "id": "uuid",
+            "name": "name",
+            "age": ("int", 18, 80),
+            "salary": ("float", 30000.0, 150000.0),
+            "status": ("choice", ["active", "inactive"]),
+        }
+        result = records_arrow(100, schema)
+
+        assert result.num_rows == 100
+        assert result.schema.field("id").type == pa.string()
+        assert result.schema.field("name").type == pa.string()
+        assert result.schema.field("age").type == pa.int64()
+        assert result.schema.field("salary").type == pa.float64()
+        assert result.schema.field("status").type == pa.string()
+
+    def test_records_arrow_large_batch(self) -> None:
+        """Test generating a large batch efficiently."""
+        seed(42)
+        result = records_arrow(100_000, {"id": "uuid", "name": "name"})
+        assert result.num_rows == 100_000
+
+    def test_records_arrow_with_custom_provider(self) -> None:
+        """Test records_arrow works with custom providers."""
+        fake = Faker()
+        fake.seed(42)
+        fake.add_provider("fruit", ["apple", "banana", "cherry"])
+
+        result = fake.records_arrow(10, {"name": "name", "fruit": "fruit"})
+        assert result.num_rows == 10
+
+        fruits = result.column("fruit").to_pylist()
+        for fruit in fruits:
+            assert fruit in ["apple", "banana", "cherry"]
