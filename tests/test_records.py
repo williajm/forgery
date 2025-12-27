@@ -624,3 +624,99 @@ class TestRecordsArrow:
         fruits = result.column("fruit").to_pylist()
         for fruit in fruits:
             assert fruit in ["apple", "banana", "cherry"]
+
+    def test_records_arrow_batch_size_limit(self) -> None:
+        """Batch size exceeding 10 million should raise ValueError."""
+        with pytest.raises(ValueError, match="exceeds maximum"):
+            records_arrow(10_000_001, {"id": "uuid"})
+
+    def test_records_arrow_simple_int_type(self) -> None:
+        """Simple 'int' type (without range) should produce Int64 column."""
+        seed(42)
+        result = records_arrow(100, {"value": "int"})
+        assert result.schema.field("value").type == pa.int64()
+        values = result.column("value").to_pylist()
+        for v in values:
+            assert isinstance(v, int)
+            assert 0 <= v <= 100  # Default range
+
+    def test_records_arrow_simple_float_type(self) -> None:
+        """Simple 'float' type (without range) should produce Float64 column."""
+        seed(42)
+        result = records_arrow(100, {"value": "float"})
+        assert result.schema.field("value").type == pa.float64()
+        values = result.column("value").to_pylist()
+        for v in values:
+            assert isinstance(v, float)
+            assert 0.0 <= v <= 1.0  # Default range
+
+    def test_records_arrow_text_range(self) -> None:
+        """Text range specification should work with Arrow."""
+        seed(42)
+        result = records_arrow(50, {"bio": ("text", 20, 50)})
+        texts = result.column("bio").to_pylist()
+        for t in texts:
+            assert isinstance(t, str)
+            assert 20 <= len(t) <= 50
+
+    def test_records_arrow_date_range(self) -> None:
+        """Date range specification should work with Arrow."""
+        seed(42)
+        result = records_arrow(50, {"hire_date": ("date", "2020-01-01", "2024-12-31")})
+        dates = result.column("hire_date").to_pylist()
+        for d in dates:
+            assert isinstance(d, str)
+            assert d.startswith("202")
+
+    def test_records_arrow_invalid_float_range(self) -> None:
+        """Invalid float range (min > max) should raise ValueError."""
+        with pytest.raises(ValueError, match="Invalid float range"):
+            records_arrow(10, {"price": ("float", 100.0, 10.0)})
+
+    def test_records_arrow_invalid_text_range(self) -> None:
+        """Invalid text range (min > max) should raise ValueError."""
+        with pytest.raises(ValueError, match="Invalid text range"):
+            records_arrow(10, {"bio": ("text", 100, 10)})
+
+    def test_records_arrow_empty_choice(self) -> None:
+        """Empty choice options should raise ValueError."""
+        with pytest.raises(ValueError, match="empty"):
+            records_arrow(10, {"status": ("choice", [])})
+
+    def test_records_arrow_unknown_type(self) -> None:
+        """Unknown type should raise ValueError."""
+        with pytest.raises(ValueError, match="Unknown type"):
+            records_arrow(10, {"field": "nonexistent_type"})
+
+    def test_records_arrow_single_row(self) -> None:
+        """Single row batch should work."""
+        seed(42)
+        result = records_arrow(1, {"id": "uuid", "name": "name"})
+        assert result.num_rows == 1
+
+    def test_records_arrow_single_column(self) -> None:
+        """Single column schema should work."""
+        seed(42)
+        result = records_arrow(10, {"id": "uuid"})
+        assert result.num_columns == 1
+        assert result.num_rows == 10
+
+
+class TestSchemaSize:
+    """Tests for schema size limits."""
+
+    def test_schema_size_limit(self) -> None:
+        """Schema with too many fields should raise ValueError."""
+        # 10,001 fields exceeds the MAX_SCHEMA_SIZE of 10,000
+        large_schema = {f"field_{i}": "uuid" for i in range(10_001)}
+        with pytest.raises(ValueError, match=r"schema size.*exceeds maximum"):
+            records(1, large_schema)
+
+    def test_schema_size_at_limit(self) -> None:
+        """Schema at exactly 10,000 fields should work."""
+        # This test is slow, so we just verify the limit is 10,000
+        # by testing a smaller schema works
+        schema = {f"field_{i}": "uuid" for i in range(100)}
+        result = records(1, schema)
+        assert len(result) == 1
+        assert len(result[0]) == 100

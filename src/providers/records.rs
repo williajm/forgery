@@ -816,30 +816,42 @@ fn generate_arrow_column(
     match spec {
         // Integer types -> Int64Array
         FieldSpec::Int => {
-            let values: Vec<i64> = (0..n)
-                .map(|_| numbers::generate_integer(rng, 0, 100).unwrap())
+            let values: Result<Vec<i64>, _> = (0..n)
+                .map(|_| {
+                    numbers::generate_integer(rng, 0, 100)
+                        .map_err(|e| SchemaError { message: e.to_string() })
+                })
                 .collect();
-            Ok(Arc::new(Int64Array::from(values)))
+            Ok(Arc::new(Int64Array::from(values?)))
         }
         FieldSpec::IntRange { min, max } => {
-            let values: Vec<i64> = (0..n)
-                .map(|_| numbers::generate_integer(rng, *min, *max).unwrap())
+            let values: Result<Vec<i64>, _> = (0..n)
+                .map(|_| {
+                    numbers::generate_integer(rng, *min, *max)
+                        .map_err(|e| SchemaError { message: e.to_string() })
+                })
                 .collect();
-            Ok(Arc::new(Int64Array::from(values)))
+            Ok(Arc::new(Int64Array::from(values?)))
         }
 
         // Float types -> Float64Array
         FieldSpec::Float => {
-            let values: Vec<f64> = (0..n)
-                .map(|_| numbers::generate_float(rng, 0.0, 1.0).unwrap())
+            let values: Result<Vec<f64>, _> = (0..n)
+                .map(|_| {
+                    numbers::generate_float(rng, 0.0, 1.0)
+                        .map_err(|e| SchemaError { message: e.to_string() })
+                })
                 .collect();
-            Ok(Arc::new(Float64Array::from(values)))
+            Ok(Arc::new(Float64Array::from(values?)))
         }
         FieldSpec::FloatRange { min, max } => {
-            let values: Vec<f64> = (0..n)
-                .map(|_| numbers::generate_float(rng, *min, *max).unwrap())
+            let values: Result<Vec<f64>, _> = (0..n)
+                .map(|_| {
+                    numbers::generate_float(rng, *min, *max)
+                        .map_err(|e| SchemaError { message: e.to_string() })
+                })
                 .collect();
-            Ok(Arc::new(Float64Array::from(values)))
+            Ok(Arc::new(Float64Array::from(values?)))
         }
 
         // RGB color -> Struct with r, g, b UInt8 fields
@@ -876,14 +888,13 @@ fn generate_arrow_column(
 
         // All other types produce string arrays
         _ => {
-            let values: Vec<String> = (0..n)
+            let values: Result<Vec<String>, SchemaError> = (0..n)
                 .map(|_| {
-                    let value =
-                        generate_value_with_custom(rng, locale, spec, custom_providers).unwrap();
-                    value.as_string()
+                    generate_value_with_custom(rng, locale, spec, custom_providers)
+                        .map(|v| v.as_string())
                 })
                 .collect();
-            Ok(Arc::new(StringArray::from(values)))
+            Ok(Arc::new(StringArray::from(values?)))
         }
     }
 }

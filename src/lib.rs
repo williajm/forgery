@@ -77,6 +77,48 @@ pub fn validate_batch_size(n: usize) -> Result<(), BatchSizeError> {
     Ok(())
 }
 
+/// Maximum schema size (number of fields) to prevent resource exhaustion.
+///
+/// This limit prevents DoS attacks via schemas with millions of columns.
+pub const MAX_SCHEMA_SIZE: usize = 10_000;
+
+/// Error type for schema size validation.
+#[derive(Debug, Clone)]
+pub struct SchemaSizeError {
+    /// The requested schema size.
+    pub requested: usize,
+    /// The maximum allowed schema size.
+    pub max: usize,
+}
+
+impl std::fmt::Display for SchemaSizeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "schema size {} exceeds maximum allowed size of {}",
+            self.requested, self.max
+        )
+    }
+}
+
+impl std::error::Error for SchemaSizeError {}
+
+/// Validate that a schema size is within acceptable limits.
+///
+/// # Errors
+///
+/// Returns `SchemaSizeError` if schema size exceeds `MAX_SCHEMA_SIZE`.
+#[inline]
+pub fn validate_schema_size(size: usize) -> Result<(), SchemaSizeError> {
+    if size > MAX_SCHEMA_SIZE {
+        return Err(SchemaSizeError {
+            requested: size,
+            max: MAX_SCHEMA_SIZE,
+        });
+    }
+    Ok(())
+}
+
 /// Validate that a locale is supported and parse it.
 ///
 /// # Errors
@@ -1712,12 +1754,12 @@ impl Faker {
             .collect()
     }
 
-    /// Generate records as a PyArrow Table.
+    /// Generate records as a PyArrow RecordBatch.
     ///
     /// This is the high-performance path for generating structured data,
     /// suitable for use with PyArrow, Polars, and other Arrow-compatible tools.
     ///
-    /// The data is generated in columnar format and returned as a PyArrow Table,
+    /// The data is generated in columnar format and returned as a PyArrow RecordBatch,
     /// which can be used directly with pandas, polars, or other data processing tools.
     ///
     /// # Arguments
@@ -1727,7 +1769,7 @@ impl Faker {
     ///
     /// # Returns
     ///
-    /// A PyArrow Table with the generated data.
+    /// A PyArrow RecordBatch with the generated data.
     ///
     /// # Example
     ///
@@ -1736,14 +1778,14 @@ impl Faker {
     /// from forgery import Faker
     ///
     /// fake = Faker()
-    /// table = fake.records_arrow(1000, {
+    /// batch = fake.records_arrow(1000, {
     ///     "id": "uuid",
     ///     "name": "name",
     ///     "age": ("int", 18, 65),
     ///     "salary": ("float", 30000.0, 150000.0),
     /// })
-    /// # table is a pyarrow.Table
-    /// df = table.to_pandas()  # Convert to pandas DataFrame
+    /// # batch is a pyarrow.RecordBatch
+    /// df = batch.to_pandas()  # Convert to pandas DataFrame
     /// ```
     #[pyo3(name = "records_arrow")]
     fn py_records_arrow(
@@ -1776,6 +1818,9 @@ fn parse_py_schema_with_custom(
     schema: &Bound<'_, PyDict>,
     custom_provider_names: &HashSet<String>,
 ) -> PyResult<BTreeMap<String, providers::records::FieldSpec>> {
+    // Validate schema size to prevent DoS attacks via huge schemas
+    validate_schema_size(schema.len()).map_err(|e| PyValueError::new_err(e.to_string()))?;
+
     let mut rust_schema = BTreeMap::new();
 
     for (key, value) in schema.iter() {
