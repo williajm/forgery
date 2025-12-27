@@ -156,7 +156,9 @@ class Faker:
         """Generate a single random float within a range."""
         ...
 
-    def floats(self, n: int, min: builtins.float = 0.0, max: builtins.float = 1.0) -> list[builtins.float]:
+    def floats(
+        self, n: int, min: builtins.float = 0.0, max: builtins.float = 1.0
+    ) -> list[builtins.float]:
         """Generate a batch of random floats within a range."""
         ...
 
