@@ -88,12 +88,31 @@ mod tests {
     #[test]
     fn test_ja_jp_data_implements_locale_data() {
         let data = &JA_JP_DATA;
+
+        // Test all LocaleData trait methods for full macro coverage
         assert!(data.first_names().is_some());
         assert!(data.last_names().is_some());
-        assert!(data.romanized_first_names().is_some());
-        assert!(data.romanized_last_names().is_some());
         assert!(data.cities().is_some());
         assert!(data.regions().is_some());
+        assert!(data.region_abbrs().is_some());
+        assert!(data.street_names().is_some());
+        assert!(data.street_suffixes().is_some());
+        assert!(data.countries().is_some());
+        assert!(data.postal_code_format().is_some());
+        assert!(data.address_format().is_some());
+        assert!(data.phone_format().is_some());
+        assert!(data.company_prefixes().is_some());
+        assert!(data.company_suffixes().is_some());
+        assert!(data.job_titles().is_some());
+        assert!(data.catch_phrase_adjectives().is_some());
+        assert!(data.catch_phrase_nouns().is_some());
+        assert!(data.text_words().is_some());
+        assert!(data.tlds().is_some());
+        assert!(data.free_email_domains().is_some());
+        assert!(data.safe_email_domains().is_some());
+        assert!(data.color_names().is_some());
+        assert!(data.romanized_first_names().is_some());
+        assert!(data.romanized_last_names().is_some());
     }
 
     #[test]
