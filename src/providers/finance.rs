@@ -234,7 +234,7 @@ pub fn generate_bics(rng: &mut ForgeryRng, n: usize) -> Vec<String> {
 /// Generate a single BIC/SWIFT code.
 #[inline]
 pub fn generate_bic(rng: &mut ForgeryRng) -> String {
-    // Generate 8 or 11 character BIC
+    // 50% chance of including optional branch code (8 vs 11 characters)
     let include_branch = rng.gen_range(0, 1) == 1;
     let capacity = if include_branch { 11 } else { 8 };
     let mut bic = String::with_capacity(capacity);
@@ -412,7 +412,7 @@ pub const TRANSACTION_TYPES: &[&str] = &[
 ];
 
 /// Common merchant/payee names for transactions.
-const MERCHANTS: &[&str] = &[
+pub const MERCHANTS: &[&str] = &[
     "Tesco",
     "Sainsbury's",
     "Amazon UK",
@@ -440,8 +440,12 @@ const MERCHANTS: &[&str] = &[
     "BT",
 ];
 
+/// Probability threshold for credit transactions (20% credits, 80% debits).
+/// When a random value 0-9 is less than this threshold, the transaction is a credit.
+const CREDIT_PROBABILITY_THRESHOLD: usize = 2;
+
 /// A financial transaction record.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Transaction {
     /// Unique transaction reference
     pub reference: String,
@@ -492,8 +496,8 @@ pub fn generate_transactions(
         // Generate transaction reference (8 alphanumeric chars)
         let reference = generate_transaction_reference(rng);
 
-        // Decide if this is a credit or debit (80% debits, 20% credits)
-        let is_credit = rng.gen_range(0, 9) < 2;
+        // Decide if this is a credit or debit
+        let is_credit = rng.gen_range(0, 9) < CREDIT_PROBABILITY_THRESHOLD;
 
         // Generate amount
         let amount = if is_credit {
