@@ -104,7 +104,8 @@ macro_rules! impl_locale_data {
         tlds: $tlds:expr,
         free_email_domains: $free_email_domains:expr,
         safe_email_domains: $safe_email_domains:expr,
-        color_names: $color_names:expr
+        color_names: $color_names:expr,
+        bank_names: $bank_names:expr
         $(, romanized_first_names: $romanized_first_names:expr)?
         $(, romanized_last_names: $romanized_last_names:expr)?
         $(,)?
@@ -192,6 +193,10 @@ macro_rules! impl_locale_data {
 
             fn color_names(&self) -> Option<&'static [&'static str]> {
                 Some($color_names)
+            }
+
+            fn bank_names(&self) -> Option<&'static [&'static str]> {
+                Some($bank_names)
             }
 
             $(

@@ -65,14 +65,16 @@ class Faker:
         """Generate a single random full name."""
         ...
 
-    def names(self, n: int) -> list[str]:
+    def names(self, n: int, unique: bool = False) -> list[str]:
         """Generate a batch of random full names.
 
         Args:
             n: Number of names to generate.
+            unique: If True, ensure all generated values are unique.
 
         Raises:
-            ValueError: If n exceeds the maximum batch size (10 million).
+            ValueError: If n exceeds the maximum batch size (10 million) or
+                        unique generation cannot produce enough unique values.
         """
         ...
 
@@ -80,14 +82,16 @@ class Faker:
         """Generate a single random first name."""
         ...
 
-    def first_names(self, n: int) -> list[str]:
+    def first_names(self, n: int, unique: bool = False) -> list[str]:
         """Generate a batch of random first names.
 
         Args:
             n: Number of first names to generate.
+            unique: If True, ensure all generated values are unique.
 
         Raises:
-            ValueError: If n exceeds the maximum batch size (10 million).
+            ValueError: If n exceeds the maximum batch size (10 million) or
+                        unique generation cannot produce enough unique values.
         """
         ...
 
@@ -95,14 +99,16 @@ class Faker:
         """Generate a single random last name."""
         ...
 
-    def last_names(self, n: int) -> list[str]:
+    def last_names(self, n: int, unique: bool = False) -> list[str]:
         """Generate a batch of random last names.
 
         Args:
             n: Number of last names to generate.
+            unique: If True, ensure all generated values are unique.
 
         Raises:
-            ValueError: If n exceeds the maximum batch size (10 million).
+            ValueError: If n exceeds the maximum batch size (10 million) or
+                        unique generation cannot produce enough unique values.
         """
         ...
 
@@ -111,14 +117,16 @@ class Faker:
         """Generate a single random email address."""
         ...
 
-    def emails(self, n: int) -> list[str]:
+    def emails(self, n: int, unique: bool = False) -> list[str]:
         """Generate a batch of random email addresses.
 
         Args:
             n: Number of emails to generate.
+            unique: If True, ensure all generated values are unique.
 
         Raises:
-            ValueError: If n exceeds the maximum batch size (10 million).
+            ValueError: If n exceeds the maximum batch size (10 million) or
+                        unique generation cannot produce enough unique values.
         """
         ...
 
@@ -196,8 +204,13 @@ class Faker:
         """Generate a single random color name."""
         ...
 
-    def colors(self, n: int) -> list[str]:
-        """Generate a batch of random color names."""
+    def colors(self, n: int, unique: bool = False) -> list[str]:
+        """Generate a batch of random color names.
+
+        Args:
+            n: Number of colors to generate.
+            unique: If True, ensure all generated values are unique.
+        """
         ...
 
     def hex_color(self) -> str:
@@ -271,48 +284,78 @@ class Faker:
         """Generate a single random street address."""
         ...
 
-    def street_addresses(self, n: int) -> list[str]:
-        """Generate a batch of random street addresses."""
+    def street_addresses(self, n: int, unique: bool = False) -> list[str]:
+        """Generate a batch of random street addresses.
+
+        Args:
+            n: Number of addresses to generate.
+            unique: If True, ensure all generated values are unique.
+        """
         ...
 
     def city(self) -> str:
         """Generate a single random city name."""
         ...
 
-    def cities(self, n: int) -> list[str]:
-        """Generate a batch of random city names."""
+    def cities(self, n: int, unique: bool = False) -> list[str]:
+        """Generate a batch of random city names.
+
+        Args:
+            n: Number of cities to generate.
+            unique: If True, ensure all generated values are unique.
+        """
         ...
 
     def state(self) -> str:
         """Generate a single random state name."""
         ...
 
-    def states(self, n: int) -> list[str]:
-        """Generate a batch of random state names."""
+    def states(self, n: int, unique: bool = False) -> list[str]:
+        """Generate a batch of random state names.
+
+        Args:
+            n: Number of states to generate.
+            unique: If True, ensure all generated values are unique.
+        """
         ...
 
     def country(self) -> str:
         """Generate a single random country name."""
         ...
 
-    def countries(self, n: int) -> list[str]:
-        """Generate a batch of random country names."""
+    def countries(self, n: int, unique: bool = False) -> list[str]:
+        """Generate a batch of random country names.
+
+        Args:
+            n: Number of countries to generate.
+            unique: If True, ensure all generated values are unique.
+        """
         ...
 
     def zip_code(self) -> str:
         """Generate a single random zip code."""
         ...
 
-    def zip_codes(self, n: int) -> list[str]:
-        """Generate a batch of random zip codes."""
+    def zip_codes(self, n: int, unique: bool = False) -> list[str]:
+        """Generate a batch of random zip codes.
+
+        Args:
+            n: Number of zip codes to generate.
+            unique: If True, ensure all generated values are unique.
+        """
         ...
 
     def address(self) -> str:
         """Generate a single random full address."""
         ...
 
-    def addresses(self, n: int) -> list[str]:
-        """Generate a batch of random full addresses."""
+    def addresses(self, n: int, unique: bool = False) -> list[str]:
+        """Generate a batch of random full addresses.
+
+        Args:
+            n: Number of addresses to generate.
+            unique: If True, ensure all generated values are unique.
+        """
         ...
 
     # Phone generators
@@ -320,8 +363,13 @@ class Faker:
         """Generate a single random phone number."""
         ...
 
-    def phone_numbers(self, n: int) -> list[str]:
-        """Generate a batch of random phone numbers."""
+    def phone_numbers(self, n: int, unique: bool = False) -> list[str]:
+        """Generate a batch of random phone numbers.
+
+        Args:
+            n: Number of phone numbers to generate.
+            unique: If True, ensure all generated values are unique.
+        """
         ...
 
     # Company generators
@@ -329,24 +377,39 @@ class Faker:
         """Generate a single random company name."""
         ...
 
-    def companies(self, n: int) -> list[str]:
-        """Generate a batch of random company names."""
+    def companies(self, n: int, unique: bool = False) -> list[str]:
+        """Generate a batch of random company names.
+
+        Args:
+            n: Number of companies to generate.
+            unique: If True, ensure all generated values are unique.
+        """
         ...
 
     def job(self) -> str:
         """Generate a single random job title."""
         ...
 
-    def jobs(self, n: int) -> list[str]:
-        """Generate a batch of random job titles."""
+    def jobs(self, n: int, unique: bool = False) -> list[str]:
+        """Generate a batch of random job titles.
+
+        Args:
+            n: Number of job titles to generate.
+            unique: If True, ensure all generated values are unique.
+        """
         ...
 
     def catch_phrase(self) -> str:
         """Generate a single random catch phrase."""
         ...
 
-    def catch_phrases(self, n: int) -> list[str]:
-        """Generate a batch of random catch phrases."""
+    def catch_phrases(self, n: int, unique: bool = False) -> list[str]:
+        """Generate a batch of random catch phrases.
+
+        Args:
+            n: Number of catch phrases to generate.
+            unique: If True, ensure all generated values are unique.
+        """
         ...
 
     # Network generators
@@ -395,16 +458,26 @@ class Faker:
         """Generate a single random safe email (example.com/org/net)."""
         ...
 
-    def safe_emails(self, n: int) -> list[str]:
-        """Generate a batch of random safe emails."""
+    def safe_emails(self, n: int, unique: bool = False) -> list[str]:
+        """Generate a batch of random safe emails.
+
+        Args:
+            n: Number of emails to generate.
+            unique: If True, ensure all generated values are unique.
+        """
         ...
 
     def free_email(self) -> str:
         """Generate a single random free email (gmail.com, etc.)."""
         ...
 
-    def free_emails(self, n: int) -> list[str]:
-        """Generate a batch of random free emails."""
+    def free_emails(self, n: int, unique: bool = False) -> list[str]:
+        """Generate a batch of random free emails.
+
+        Args:
+            n: Number of emails to generate.
+            unique: If True, ensure all generated values are unique.
+        """
         ...
 
     # Finance generators
@@ -422,6 +495,177 @@ class Faker:
 
     def ibans(self, n: int) -> list[str]:
         """Generate a batch of random IBANs."""
+        ...
+
+    def bic(self) -> str:
+        """Generate a single random BIC/SWIFT code."""
+        ...
+
+    def bics(self, n: int) -> list[str]:
+        """Generate a batch of random BIC/SWIFT codes."""
+        ...
+
+    def bank_account(self) -> str:
+        """Generate a single random bank account number (8-17 digits)."""
+        ...
+
+    def bank_accounts(self, n: int) -> list[str]:
+        """Generate a batch of random bank account numbers."""
+        ...
+
+    def bank_name(self) -> str:
+        """Generate a single random bank name (locale-specific)."""
+        ...
+
+    def bank_names(self, n: int, unique: bool = False) -> list[str]:
+        """Generate a batch of random bank names.
+
+        Args:
+            n: Number of bank names to generate.
+            unique: If True, ensure all generated values are unique.
+        """
+        ...
+
+    # UK Banking generators
+    def sort_code(self) -> str:
+        """Generate a single UK sort code (format: XX-XX-XX)."""
+        ...
+
+    def sort_codes(self, n: int) -> list[str]:
+        """Generate a batch of UK sort codes.
+
+        Args:
+            n: Number of sort codes to generate.
+
+        Raises:
+            ValueError: If n exceeds the maximum batch size (10 million).
+        """
+        ...
+
+    def uk_account_number(self) -> str:
+        """Generate a single UK bank account number (8 digits)."""
+        ...
+
+    def uk_account_numbers(self, n: int) -> list[str]:
+        """Generate a batch of UK bank account numbers (8 digits each).
+
+        Args:
+            n: Number of account numbers to generate.
+
+        Raises:
+            ValueError: If n exceeds the maximum batch size (10 million).
+        """
+        ...
+
+    # Transaction generators
+    def transactions(
+        self,
+        n: int,
+        starting_balance: builtins.float,
+        start_date: str,
+        end_date: str,
+    ) -> list[dict[str, str | builtins.float]]:
+        """Generate a batch of financial transactions.
+
+        Each transaction is a dictionary with keys:
+        - reference: 8-character alphanumeric reference
+        - date: Transaction date in YYYY-MM-DD format
+        - amount: Transaction amount (negative for debits)
+        - transaction_type: e.g., "Direct Debit", "Card Payment", etc.
+        - description: Transaction description
+        - balance: Running balance after transaction
+
+        Args:
+            n: Number of transactions to generate.
+            starting_balance: Opening balance before first transaction.
+            start_date: Start date in YYYY-MM-DD format.
+            end_date: End date in YYYY-MM-DD format.
+
+        Returns:
+            List of transaction dictionaries, sorted chronologically.
+
+        Raises:
+            ValueError: If n exceeds the maximum batch size (10 million).
+        """
+        ...
+
+    def transaction_amount(
+        self, min: builtins.float, max: builtins.float
+    ) -> builtins.float:
+        """Generate a single transaction amount.
+
+        Args:
+            min: Minimum amount (inclusive).
+            max: Maximum amount (inclusive).
+
+        Returns:
+            A transaction amount rounded to 2 decimal places.
+        """
+        ...
+
+    def transaction_amounts(
+        self, n: int, min: builtins.float, max: builtins.float
+    ) -> list[builtins.float]:
+        """Generate a batch of transaction amounts.
+
+        Args:
+            n: Number of amounts to generate.
+            min: Minimum amount (inclusive).
+            max: Maximum amount (inclusive).
+
+        Returns:
+            List of amounts rounded to 2 decimal places.
+
+        Raises:
+            ValueError: If n exceeds the maximum batch size (10 million).
+        """
+        ...
+
+    # Password generators
+    def password(
+        self,
+        length: int = 12,
+        uppercase: bool = True,
+        lowercase: bool = True,
+        digits: bool = True,
+        symbols: bool = True,
+    ) -> str:
+        """Generate a single random password.
+
+        Args:
+            length: Length of the password (default: 12).
+            uppercase: Include uppercase letters (default: True).
+            lowercase: Include lowercase letters (default: True).
+            digits: Include digits (default: True).
+            symbols: Include symbols (default: True).
+
+        Raises:
+            ValueError: If no character sets are enabled.
+        """
+        ...
+
+    def passwords(
+        self,
+        n: int,
+        length: int = 12,
+        uppercase: bool = True,
+        lowercase: bool = True,
+        digits: bool = True,
+        symbols: bool = True,
+    ) -> list[str]:
+        """Generate a batch of random passwords.
+
+        Args:
+            n: Number of passwords to generate.
+            length: Length of each password (default: 12).
+            uppercase: Include uppercase letters (default: True).
+            lowercase: Include lowercase letters (default: True).
+            digits: Include digits (default: True).
+            symbols: Include symbols (default: True).
+
+        Raises:
+            ValueError: If no character sets are enabled or n exceeds batch limit.
+        """
         ...
 
     # Records generators

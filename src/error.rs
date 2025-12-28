@@ -8,6 +8,27 @@ use crate::providers::numbers::{FloatRangeError, RangeError};
 use crate::{BatchSizeError, LocaleError};
 use std::fmt;
 
+/// Error when unique value generation cannot produce enough unique values.
+#[derive(Debug, Clone)]
+pub struct UniqueExhaustedError {
+    /// Number of unique values requested.
+    pub requested: usize,
+    /// Number of unique values actually generated before exhaustion.
+    pub generated: usize,
+}
+
+impl fmt::Display for UniqueExhaustedError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "unique value generation exhausted: requested {} but could only generate {} unique values",
+            self.requested, self.generated
+        )
+    }
+}
+
+impl std::error::Error for UniqueExhaustedError {}
+
 /// Unified error type for all forgery operations.
 ///
 /// This enum wraps all specific error types used throughout the crate,
@@ -24,6 +45,8 @@ pub enum ForgeryError {
     FloatRange(FloatRangeError),
     /// Invalid date range.
     DateRange(DateRangeError),
+    /// Unique value generation exhausted.
+    UniqueExhausted(UniqueExhaustedError),
 }
 
 impl fmt::Display for ForgeryError {
@@ -34,6 +57,7 @@ impl fmt::Display for ForgeryError {
             ForgeryError::IntegerRange(e) => write!(f, "{}", e),
             ForgeryError::FloatRange(e) => write!(f, "{}", e),
             ForgeryError::DateRange(e) => write!(f, "{}", e),
+            ForgeryError::UniqueExhausted(e) => write!(f, "{}", e),
         }
     }
 }
@@ -46,6 +70,7 @@ impl std::error::Error for ForgeryError {
             ForgeryError::IntegerRange(e) => Some(e),
             ForgeryError::FloatRange(e) => Some(e),
             ForgeryError::DateRange(e) => Some(e),
+            ForgeryError::UniqueExhausted(e) => Some(e),
         }
     }
 }
@@ -79,6 +104,12 @@ impl From<FloatRangeError> for ForgeryError {
 impl From<DateRangeError> for ForgeryError {
     fn from(err: DateRangeError) -> Self {
         ForgeryError::DateRange(err)
+    }
+}
+
+impl From<UniqueExhaustedError> for ForgeryError {
+    fn from(err: UniqueExhaustedError) -> Self {
+        ForgeryError::UniqueExhausted(err)
     }
 }
 

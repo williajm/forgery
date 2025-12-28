@@ -233,6 +233,147 @@ def credit_card() -> str: ...
 def credit_cards(n: int) -> list[str]: ...
 def iban() -> str: ...
 def ibans(n: int) -> list[str]: ...
+def bic() -> str: ...
+def bics(n: int) -> list[str]: ...
+def bank_account() -> str: ...
+def bank_accounts(n: int) -> list[str]: ...
+def bank_name() -> str: ...
+def bank_names(n: int) -> list[str]: ...
+
+# UK Banking generation
+def sort_code() -> str:
+    """Generate a single UK sort code (format: XX-XX-XX)."""
+    ...
+
+def sort_codes(n: int) -> list[str]:
+    """Generate a batch of UK sort codes.
+
+    Args:
+        n: Number of sort codes to generate.
+
+    Raises:
+        ValueError: If n exceeds the maximum batch size (10 million).
+    """
+    ...
+
+def uk_account_number() -> str:
+    """Generate a single UK bank account number (8 digits)."""
+    ...
+
+def uk_account_numbers(n: int) -> list[str]:
+    """Generate a batch of UK bank account numbers (8 digits each).
+
+    Args:
+        n: Number of account numbers to generate.
+
+    Raises:
+        ValueError: If n exceeds the maximum batch size (10 million).
+    """
+    ...
+
+# Transaction generation
+def transactions(
+    n: int,
+    starting_balance: float,
+    start_date: str,
+    end_date: str,
+) -> list[dict[str, str | float]]:
+    """Generate a batch of financial transactions.
+
+    Each transaction is a dictionary with keys:
+    - reference: 8-character alphanumeric reference
+    - date: Transaction date in YYYY-MM-DD format
+    - amount: Transaction amount (negative for debits)
+    - transaction_type: e.g., "Direct Debit", "Card Payment", etc.
+    - description: Transaction description
+    - balance: Running balance after transaction
+
+    Args:
+        n: Number of transactions to generate.
+        starting_balance: Opening balance before first transaction.
+        start_date: Start date in YYYY-MM-DD format.
+        end_date: End date in YYYY-MM-DD format.
+
+    Returns:
+        List of transaction dictionaries, sorted chronologically.
+
+    Raises:
+        ValueError: If n exceeds the maximum batch size (10 million).
+    """
+    ...
+
+def transaction_amount(min: float, max: float) -> float:
+    """Generate a single transaction amount.
+
+    Args:
+        min: Minimum amount (inclusive).
+        max: Maximum amount (inclusive).
+
+    Returns:
+        A transaction amount rounded to 2 decimal places.
+    """
+    ...
+
+def transaction_amounts(n: int, min: float, max: float) -> list[float]:
+    """Generate a batch of transaction amounts.
+
+    Args:
+        n: Number of amounts to generate.
+        min: Minimum amount (inclusive).
+        max: Maximum amount (inclusive).
+
+    Returns:
+        List of amounts rounded to 2 decimal places.
+
+    Raises:
+        ValueError: If n exceeds the maximum batch size (10 million).
+    """
+    ...
+
+# Password generation
+def password(
+    length: int = 12,
+    uppercase: bool = True,
+    lowercase: bool = True,
+    digits: bool = True,
+    symbols: bool = True,
+) -> str:
+    """Generate a single random password.
+
+    Args:
+        length: Length of the password (default: 12).
+        uppercase: Include uppercase letters (default: True).
+        lowercase: Include lowercase letters (default: True).
+        digits: Include digits (default: True).
+        symbols: Include symbols (default: True).
+
+    Raises:
+        ValueError: If no character sets are enabled.
+    """
+    ...
+
+def passwords(
+    n: int,
+    length: int = 12,
+    uppercase: bool = True,
+    lowercase: bool = True,
+    digits: bool = True,
+    symbols: bool = True,
+) -> list[str]:
+    """Generate a batch of random passwords.
+
+    Args:
+        n: Number of passwords to generate.
+        length: Length of each password (default: 12).
+        uppercase: Include uppercase letters (default: True).
+        lowercase: Include lowercase letters (default: True).
+        digits: Include digits (default: True).
+        symbols: Include symbols (default: True).
+
+    Raises:
+        ValueError: If no character sets are enabled or n exceeds batch limit.
+    """
+    ...
 
 # Records generation
 FieldValue = str | int | float | tuple[int, int, int]

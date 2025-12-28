@@ -57,6 +57,12 @@ __all__ = [
     "add_weighted_provider",
     "address",
     "addresses",
+    "bank_account",
+    "bank_accounts",
+    "bank_name",
+    "bank_names",
+    "bic",
+    "bics",
     "catch_phrase",
     "catch_phrases",
     "cities",
@@ -112,6 +118,8 @@ __all__ = [
     "names",
     "paragraph",
     "paragraphs",
+    "password",
+    "passwords",
     "phone_number",
     "phone_numbers",
     "records",
@@ -130,12 +138,19 @@ __all__ = [
     "sentences",
     "sha256",
     "sha256s",
+    "sort_code",
+    "sort_codes",
     "state",
     "states",
     "street_address",
     "street_addresses",
     "text",
     "texts",
+    "transaction_amount",
+    "transaction_amounts",
+    "transactions",
+    "uk_account_number",
+    "uk_account_numbers",
     "url",
     "urls",
     "uuid",
@@ -690,6 +705,175 @@ def iban() -> str:
 def ibans(n: int) -> list[str]:
     """Generate a batch of random IBANs."""
     return fake.ibans(n)
+
+
+def bic() -> str:
+    """Generate a single random BIC/SWIFT code."""
+    return fake.bic()
+
+
+def bics(n: int) -> list[str]:
+    """Generate a batch of random BIC/SWIFT codes."""
+    return fake.bics(n)
+
+
+def bank_account() -> str:
+    """Generate a single random bank account number (8-17 digits)."""
+    return fake.bank_account()
+
+
+def bank_accounts(n: int) -> list[str]:
+    """Generate a batch of random bank account numbers."""
+    return fake.bank_accounts(n)
+
+
+def bank_name() -> str:
+    """Generate a single random bank name (locale-specific)."""
+    return fake.bank_name()
+
+
+def bank_names(n: int) -> list[str]:
+    """Generate a batch of random bank names."""
+    return fake.bank_names(n)
+
+
+# === UK Banking Generation ===
+
+
+def sort_code() -> str:
+    """Generate a single UK sort code (format: XX-XX-XX)."""
+    return fake.sort_code()
+
+
+def sort_codes(n: int) -> list[str]:
+    """Generate a batch of UK sort codes."""
+    return fake.sort_codes(n)
+
+
+def uk_account_number() -> str:
+    """Generate a single UK bank account number (8 digits)."""
+    return fake.uk_account_number()
+
+
+def uk_account_numbers(n: int) -> list[str]:
+    """Generate a batch of UK bank account numbers (8 digits each)."""
+    return fake.uk_account_numbers(n)
+
+
+# === Transaction Generation ===
+
+
+def transactions(
+    n: int,
+    starting_balance: float,
+    start_date: str,
+    end_date: str,
+) -> list[dict[str, str | float]]:
+    """Generate a batch of financial transactions.
+
+    Each transaction is a dictionary with keys:
+    - reference: 8-character alphanumeric reference
+    - date: Transaction date in YYYY-MM-DD format
+    - amount: Transaction amount (negative for debits)
+    - transaction_type: e.g., "Direct Debit", "Card Payment", etc.
+    - description: Transaction description
+    - balance: Running balance after transaction
+
+    Args:
+        n: Number of transactions to generate.
+        starting_balance: Opening balance before first transaction.
+        start_date: Start date in YYYY-MM-DD format.
+        end_date: End date in YYYY-MM-DD format.
+
+    Returns:
+        List of transaction dictionaries, sorted chronologically.
+
+    Example:
+        >>> from forgery import transactions, seed
+        >>> seed(42)
+        >>> txns = transactions(5, 1000.0, "2024-01-01", "2024-01-31")
+        >>> len(txns)
+        5
+        >>> all(k in txns[0] for k in ["reference", "date", "amount", "balance"])
+        True
+    """
+    return fake.transactions(n, starting_balance, start_date, end_date)
+
+
+def transaction_amount(min: float, max: float) -> float:
+    """Generate a single transaction amount.
+
+    Args:
+        min: Minimum amount (inclusive).
+        max: Maximum amount (inclusive).
+
+    Returns:
+        A transaction amount rounded to 2 decimal places.
+    """
+    return fake.transaction_amount(min, max)
+
+
+def transaction_amounts(n: int, min: float, max: float) -> list[float]:
+    """Generate a batch of transaction amounts.
+
+    Args:
+        n: Number of amounts to generate.
+        min: Minimum amount (inclusive).
+        max: Maximum amount (inclusive).
+
+    Returns:
+        List of amounts rounded to 2 decimal places.
+    """
+    return fake.transaction_amounts(n, min, max)
+
+
+# === Password Generation ===
+
+
+def password(
+    length: int = 12,
+    uppercase: bool = True,
+    lowercase: bool = True,
+    digits: bool = True,
+    symbols: bool = True,
+) -> str:
+    """Generate a single random password.
+
+    Args:
+        length: Length of the password (default: 12).
+        uppercase: Include uppercase letters (default: True).
+        lowercase: Include lowercase letters (default: True).
+        digits: Include digits (default: True).
+        symbols: Include symbols (default: True).
+
+    Raises:
+        ValueError: If no character sets are enabled.
+    """
+    return fake.password(length, uppercase, lowercase, digits, symbols)
+
+
+def passwords(
+    n: int,
+    length: int = 12,
+    uppercase: bool = True,
+    lowercase: bool = True,
+    digits: bool = True,
+    symbols: bool = True,
+) -> list[str]:
+    """Generate a batch of random passwords.
+
+    Args:
+        n: Number of passwords to generate.
+        length: Length of each password (default: 12).
+        uppercase: Include uppercase letters (default: True).
+        lowercase: Include lowercase letters (default: True).
+        digits: Include digits (default: True).
+        symbols: Include symbols (default: True).
+
+    Raises:
+        ValueError: If no character sets are enabled or n exceeds batch limit.
+    """
+    return fake.passwords(n, length, uppercase, lowercase, digits, symbols)
 
 
 # === Records Generation ===

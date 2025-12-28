@@ -30,6 +30,7 @@ use pyo3_arrow::PyRecordBatch;
 use rng::ForgeryRng;
 use std::collections::{BTreeMap, HashMap, HashSet};
 
+use error::{ForgeryError, UniqueExhaustedError};
 use locale::{Locale, LocaleError};
 use providers::custom::{is_reserved_name, CustomProvider, CustomProviderError};
 use std::str::FromStr;
@@ -199,6 +200,51 @@ impl Faker {
         self.locale
     }
 
+    /// Maximum attempts multiplier for unique generation.
+    ///
+    /// We try up to n * 100 attempts before giving up.
+    const UNIQUE_ATTEMPTS_MULTIPLIER: usize = 100;
+
+    /// Generate unique values using a generator function.
+    ///
+    /// This helper method generates unique values by tracking seen values
+    /// in a HashSet and retrying until enough unique values are generated.
+    ///
+    /// # Arguments
+    ///
+    /// * `n` - Number of unique values to generate
+    /// * `generator` - A closure that generates a single value
+    ///
+    /// # Errors
+    ///
+    /// Returns `UniqueExhaustedError` if we cannot generate enough unique values
+    /// within the maximum number of attempts.
+    fn generate_unique<F>(&mut self, n: usize, generator: F) -> Result<Vec<String>, ForgeryError>
+    where
+        F: Fn(&mut ForgeryRng, Locale) -> String,
+    {
+        let mut seen = HashSet::with_capacity(n);
+        let mut results = Vec::with_capacity(n);
+        let max_attempts = n.saturating_mul(Self::UNIQUE_ATTEMPTS_MULTIPLIER);
+        let mut attempts = 0;
+
+        while results.len() < n {
+            if attempts >= max_attempts {
+                return Err(UniqueExhaustedError {
+                    requested: n,
+                    generated: results.len(),
+                }
+                .into());
+            }
+            let value = generator(&mut self.rng, self.locale);
+            if seen.insert(value.clone()) {
+                results.push(value);
+            }
+            attempts += 1;
+        }
+        Ok(results)
+    }
+
     /// Seed the random number generator for deterministic output.
     ///
     /// # Arguments
@@ -213,45 +259,71 @@ impl Faker {
     /// # Arguments
     ///
     /// * `n` - Number of names to generate
+    /// * `unique` - If true, ensure all generated values are unique
     ///
     /// # Errors
     ///
-    /// Returns `BatchSizeError` if `n` exceeds the maximum batch size.
-    pub fn names(&mut self, n: usize) -> Result<Vec<String>, BatchSizeError> {
+    /// Returns `ForgeryError` if `n` exceeds the maximum batch size or
+    /// if unique generation cannot produce enough unique values.
+    pub fn names(&mut self, n: usize, unique: bool) -> Result<Vec<String>, ForgeryError> {
         validate_batch_size(n)?;
-        Ok(providers::names::generate_names(
-            &mut self.rng,
-            self.locale,
-            n,
-        ))
+        if unique {
+            self.generate_unique(n, providers::names::generate_name)
+        } else {
+            Ok(providers::names::generate_names(
+                &mut self.rng,
+                self.locale,
+                n,
+            ))
+        }
     }
 
     /// Generate a batch of random first names.
     ///
+    /// # Arguments
+    ///
+    /// * `n` - Number of names to generate
+    /// * `unique` - If true, ensure all generated values are unique
+    ///
     /// # Errors
     ///
-    /// Returns `BatchSizeError` if `n` exceeds the maximum batch size.
-    pub fn first_names(&mut self, n: usize) -> Result<Vec<String>, BatchSizeError> {
+    /// Returns `ForgeryError` if `n` exceeds the maximum batch size or
+    /// if unique generation cannot produce enough unique values.
+    pub fn first_names(&mut self, n: usize, unique: bool) -> Result<Vec<String>, ForgeryError> {
         validate_batch_size(n)?;
-        Ok(providers::names::generate_first_names(
-            &mut self.rng,
-            self.locale,
-            n,
-        ))
+        if unique {
+            self.generate_unique(n, providers::names::generate_first_name)
+        } else {
+            Ok(providers::names::generate_first_names(
+                &mut self.rng,
+                self.locale,
+                n,
+            ))
+        }
     }
 
     /// Generate a batch of random last names.
     ///
+    /// # Arguments
+    ///
+    /// * `n` - Number of names to generate
+    /// * `unique` - If true, ensure all generated values are unique
+    ///
     /// # Errors
     ///
-    /// Returns `BatchSizeError` if `n` exceeds the maximum batch size.
-    pub fn last_names(&mut self, n: usize) -> Result<Vec<String>, BatchSizeError> {
+    /// Returns `ForgeryError` if `n` exceeds the maximum batch size or
+    /// if unique generation cannot produce enough unique values.
+    pub fn last_names(&mut self, n: usize, unique: bool) -> Result<Vec<String>, ForgeryError> {
         validate_batch_size(n)?;
-        Ok(providers::names::generate_last_names(
-            &mut self.rng,
-            self.locale,
-            n,
-        ))
+        if unique {
+            self.generate_unique(n, providers::names::generate_last_name)
+        } else {
+            Ok(providers::names::generate_last_names(
+                &mut self.rng,
+                self.locale,
+                n,
+            ))
+        }
     }
 
     /// Generate a single random full name.
@@ -271,16 +343,26 @@ impl Faker {
 
     /// Generate a batch of random email addresses.
     ///
+    /// # Arguments
+    ///
+    /// * `n` - Number of emails to generate
+    /// * `unique` - If true, ensure all generated values are unique
+    ///
     /// # Errors
     ///
-    /// Returns `BatchSizeError` if `n` exceeds the maximum batch size.
-    pub fn emails(&mut self, n: usize) -> Result<Vec<String>, BatchSizeError> {
+    /// Returns `ForgeryError` if `n` exceeds the maximum batch size or
+    /// if unique generation cannot produce enough unique values.
+    pub fn emails(&mut self, n: usize, unique: bool) -> Result<Vec<String>, ForgeryError> {
         validate_batch_size(n)?;
-        Ok(providers::internet::generate_emails(
-            &mut self.rng,
-            self.locale,
-            n,
-        ))
+        if unique {
+            self.generate_unique(n, providers::internet::generate_email)
+        } else {
+            Ok(providers::internet::generate_emails(
+                &mut self.rng,
+                self.locale,
+                n,
+            ))
+        }
     }
 
     /// Generate a single random email address.
@@ -394,13 +476,27 @@ impl Faker {
     // === Color Generation ===
 
     /// Generate a batch of random color names.
-    pub fn colors(&mut self, n: usize) -> Result<Vec<String>, BatchSizeError> {
+    ///
+    /// # Arguments
+    ///
+    /// * `n` - Number of colors to generate
+    /// * `unique` - If true, ensure all generated values are unique
+    ///
+    /// # Errors
+    ///
+    /// Returns `ForgeryError` if `n` exceeds the maximum batch size or
+    /// if unique generation cannot produce enough unique values.
+    pub fn colors(&mut self, n: usize, unique: bool) -> Result<Vec<String>, ForgeryError> {
         validate_batch_size(n)?;
-        Ok(providers::colors::generate_colors(
-            &mut self.rng,
-            self.locale,
-            n,
-        ))
+        if unique {
+            self.generate_unique(n, providers::colors::generate_color)
+        } else {
+            Ok(providers::colors::generate_colors(
+                &mut self.rng,
+                self.locale,
+                n,
+            ))
+        }
     }
 
     /// Generate a single random color name.
@@ -574,13 +670,31 @@ impl Faker {
     // === Address Generation ===
 
     /// Generate a batch of random street addresses.
-    pub fn street_addresses(&mut self, n: usize) -> Result<Vec<String>, BatchSizeError> {
+    ///
+    /// # Arguments
+    ///
+    /// * `n` - Number of addresses to generate
+    /// * `unique` - If true, ensure all generated values are unique
+    ///
+    /// # Errors
+    ///
+    /// Returns `ForgeryError` if `n` exceeds the maximum batch size or
+    /// if unique generation cannot produce enough unique values.
+    pub fn street_addresses(
+        &mut self,
+        n: usize,
+        unique: bool,
+    ) -> Result<Vec<String>, ForgeryError> {
         validate_batch_size(n)?;
-        Ok(providers::address::generate_street_addresses(
-            &mut self.rng,
-            self.locale,
-            n,
-        ))
+        if unique {
+            self.generate_unique(n, providers::address::generate_street_address)
+        } else {
+            Ok(providers::address::generate_street_addresses(
+                &mut self.rng,
+                self.locale,
+                n,
+            ))
+        }
     }
 
     /// Generate a single random street address.
@@ -589,13 +703,27 @@ impl Faker {
     }
 
     /// Generate a batch of random cities.
-    pub fn cities(&mut self, n: usize) -> Result<Vec<String>, BatchSizeError> {
+    ///
+    /// # Arguments
+    ///
+    /// * `n` - Number of cities to generate
+    /// * `unique` - If true, ensure all generated values are unique
+    ///
+    /// # Errors
+    ///
+    /// Returns `ForgeryError` if `n` exceeds the maximum batch size or
+    /// if unique generation cannot produce enough unique values.
+    pub fn cities(&mut self, n: usize, unique: bool) -> Result<Vec<String>, ForgeryError> {
         validate_batch_size(n)?;
-        Ok(providers::address::generate_cities(
-            &mut self.rng,
-            self.locale,
-            n,
-        ))
+        if unique {
+            self.generate_unique(n, providers::address::generate_city)
+        } else {
+            Ok(providers::address::generate_cities(
+                &mut self.rng,
+                self.locale,
+                n,
+            ))
+        }
     }
 
     /// Generate a single random city.
@@ -604,13 +732,27 @@ impl Faker {
     }
 
     /// Generate a batch of random states.
-    pub fn states(&mut self, n: usize) -> Result<Vec<String>, BatchSizeError> {
+    ///
+    /// # Arguments
+    ///
+    /// * `n` - Number of states to generate
+    /// * `unique` - If true, ensure all generated values are unique
+    ///
+    /// # Errors
+    ///
+    /// Returns `ForgeryError` if `n` exceeds the maximum batch size or
+    /// if unique generation cannot produce enough unique values.
+    pub fn states(&mut self, n: usize, unique: bool) -> Result<Vec<String>, ForgeryError> {
         validate_batch_size(n)?;
-        Ok(providers::address::generate_states(
-            &mut self.rng,
-            self.locale,
-            n,
-        ))
+        if unique {
+            self.generate_unique(n, providers::address::generate_state)
+        } else {
+            Ok(providers::address::generate_states(
+                &mut self.rng,
+                self.locale,
+                n,
+            ))
+        }
     }
 
     /// Generate a single random state.
@@ -619,9 +761,24 @@ impl Faker {
     }
 
     /// Generate a batch of random countries.
-    pub fn countries(&mut self, n: usize) -> Result<Vec<String>, BatchSizeError> {
+    ///
+    /// # Arguments
+    ///
+    /// * `n` - Number of countries to generate
+    /// * `unique` - If true, ensure all generated values are unique
+    ///
+    /// # Errors
+    ///
+    /// Returns `ForgeryError` if `n` exceeds the maximum batch size or
+    /// if unique generation cannot produce enough unique values.
+    pub fn countries(&mut self, n: usize, unique: bool) -> Result<Vec<String>, ForgeryError> {
         validate_batch_size(n)?;
-        Ok(providers::address::generate_countries(&mut self.rng, n))
+        if unique {
+            // countries generator doesn't take locale, need a wrapper
+            self.generate_unique(n, |rng, _locale| providers::address::generate_country(rng))
+        } else {
+            Ok(providers::address::generate_countries(&mut self.rng, n))
+        }
     }
 
     /// Generate a single random country.
@@ -630,13 +787,27 @@ impl Faker {
     }
 
     /// Generate a batch of random zip codes.
-    pub fn zip_codes(&mut self, n: usize) -> Result<Vec<String>, BatchSizeError> {
+    ///
+    /// # Arguments
+    ///
+    /// * `n` - Number of zip codes to generate
+    /// * `unique` - If true, ensure all generated values are unique
+    ///
+    /// # Errors
+    ///
+    /// Returns `ForgeryError` if `n` exceeds the maximum batch size or
+    /// if unique generation cannot produce enough unique values.
+    pub fn zip_codes(&mut self, n: usize, unique: bool) -> Result<Vec<String>, ForgeryError> {
         validate_batch_size(n)?;
-        Ok(providers::address::generate_zip_codes(
-            &mut self.rng,
-            self.locale,
-            n,
-        ))
+        if unique {
+            self.generate_unique(n, providers::address::generate_zip_code)
+        } else {
+            Ok(providers::address::generate_zip_codes(
+                &mut self.rng,
+                self.locale,
+                n,
+            ))
+        }
     }
 
     /// Generate a single random zip code.
@@ -645,13 +816,27 @@ impl Faker {
     }
 
     /// Generate a batch of random full addresses.
-    pub fn addresses(&mut self, n: usize) -> Result<Vec<String>, BatchSizeError> {
+    ///
+    /// # Arguments
+    ///
+    /// * `n` - Number of addresses to generate
+    /// * `unique` - If true, ensure all generated values are unique
+    ///
+    /// # Errors
+    ///
+    /// Returns `ForgeryError` if `n` exceeds the maximum batch size or
+    /// if unique generation cannot produce enough unique values.
+    pub fn addresses(&mut self, n: usize, unique: bool) -> Result<Vec<String>, ForgeryError> {
         validate_batch_size(n)?;
-        Ok(providers::address::generate_addresses(
-            &mut self.rng,
-            self.locale,
-            n,
-        ))
+        if unique {
+            self.generate_unique(n, providers::address::generate_address)
+        } else {
+            Ok(providers::address::generate_addresses(
+                &mut self.rng,
+                self.locale,
+                n,
+            ))
+        }
     }
 
     /// Generate a single random full address.
@@ -662,13 +847,27 @@ impl Faker {
     // === Phone Generation ===
 
     /// Generate a batch of random phone numbers.
-    pub fn phone_numbers(&mut self, n: usize) -> Result<Vec<String>, BatchSizeError> {
+    ///
+    /// # Arguments
+    ///
+    /// * `n` - Number of phone numbers to generate
+    /// * `unique` - If true, ensure all generated values are unique
+    ///
+    /// # Errors
+    ///
+    /// Returns `ForgeryError` if `n` exceeds the maximum batch size or
+    /// if unique generation cannot produce enough unique values.
+    pub fn phone_numbers(&mut self, n: usize, unique: bool) -> Result<Vec<String>, ForgeryError> {
         validate_batch_size(n)?;
-        Ok(providers::phone::generate_phone_numbers(
-            &mut self.rng,
-            self.locale,
-            n,
-        ))
+        if unique {
+            self.generate_unique(n, providers::phone::generate_phone_number)
+        } else {
+            Ok(providers::phone::generate_phone_numbers(
+                &mut self.rng,
+                self.locale,
+                n,
+            ))
+        }
     }
 
     /// Generate a single random phone number.
@@ -679,13 +878,27 @@ impl Faker {
     // === Company Generation ===
 
     /// Generate a batch of random company names.
-    pub fn companies(&mut self, n: usize) -> Result<Vec<String>, BatchSizeError> {
+    ///
+    /// # Arguments
+    ///
+    /// * `n` - Number of companies to generate
+    /// * `unique` - If true, ensure all generated values are unique
+    ///
+    /// # Errors
+    ///
+    /// Returns `ForgeryError` if `n` exceeds the maximum batch size or
+    /// if unique generation cannot produce enough unique values.
+    pub fn companies(&mut self, n: usize, unique: bool) -> Result<Vec<String>, ForgeryError> {
         validate_batch_size(n)?;
-        Ok(providers::company::generate_companies(
-            &mut self.rng,
-            self.locale,
-            n,
-        ))
+        if unique {
+            self.generate_unique(n, providers::company::generate_company)
+        } else {
+            Ok(providers::company::generate_companies(
+                &mut self.rng,
+                self.locale,
+                n,
+            ))
+        }
     }
 
     /// Generate a single random company name.
@@ -694,13 +907,27 @@ impl Faker {
     }
 
     /// Generate a batch of random job titles.
-    pub fn jobs(&mut self, n: usize) -> Result<Vec<String>, BatchSizeError> {
+    ///
+    /// # Arguments
+    ///
+    /// * `n` - Number of job titles to generate
+    /// * `unique` - If true, ensure all generated values are unique
+    ///
+    /// # Errors
+    ///
+    /// Returns `ForgeryError` if `n` exceeds the maximum batch size or
+    /// if unique generation cannot produce enough unique values.
+    pub fn jobs(&mut self, n: usize, unique: bool) -> Result<Vec<String>, ForgeryError> {
         validate_batch_size(n)?;
-        Ok(providers::company::generate_jobs(
-            &mut self.rng,
-            self.locale,
-            n,
-        ))
+        if unique {
+            self.generate_unique(n, providers::company::generate_job)
+        } else {
+            Ok(providers::company::generate_jobs(
+                &mut self.rng,
+                self.locale,
+                n,
+            ))
+        }
     }
 
     /// Generate a single random job title.
@@ -709,13 +936,27 @@ impl Faker {
     }
 
     /// Generate a batch of random catch phrases.
-    pub fn catch_phrases(&mut self, n: usize) -> Result<Vec<String>, BatchSizeError> {
+    ///
+    /// # Arguments
+    ///
+    /// * `n` - Number of catch phrases to generate
+    /// * `unique` - If true, ensure all generated values are unique
+    ///
+    /// # Errors
+    ///
+    /// Returns `ForgeryError` if `n` exceeds the maximum batch size or
+    /// if unique generation cannot produce enough unique values.
+    pub fn catch_phrases(&mut self, n: usize, unique: bool) -> Result<Vec<String>, ForgeryError> {
         validate_batch_size(n)?;
-        Ok(providers::company::generate_catch_phrases(
-            &mut self.rng,
-            self.locale,
-            n,
-        ))
+        if unique {
+            self.generate_unique(n, providers::company::generate_catch_phrase)
+        } else {
+            Ok(providers::company::generate_catch_phrases(
+                &mut self.rng,
+                self.locale,
+                n,
+            ))
+        }
     }
 
     /// Generate a single random catch phrase.
@@ -783,13 +1024,27 @@ impl Faker {
     // === Email Variants ===
 
     /// Generate a batch of random safe email addresses (example.com/org/net).
-    pub fn safe_emails(&mut self, n: usize) -> Result<Vec<String>, BatchSizeError> {
+    ///
+    /// # Arguments
+    ///
+    /// * `n` - Number of emails to generate
+    /// * `unique` - If true, ensure all generated values are unique
+    ///
+    /// # Errors
+    ///
+    /// Returns `ForgeryError` if `n` exceeds the maximum batch size or
+    /// if unique generation cannot produce enough unique values.
+    pub fn safe_emails(&mut self, n: usize, unique: bool) -> Result<Vec<String>, ForgeryError> {
         validate_batch_size(n)?;
-        Ok(providers::internet::generate_safe_emails(
-            &mut self.rng,
-            self.locale,
-            n,
-        ))
+        if unique {
+            self.generate_unique(n, providers::internet::generate_safe_email)
+        } else {
+            Ok(providers::internet::generate_safe_emails(
+                &mut self.rng,
+                self.locale,
+                n,
+            ))
+        }
     }
 
     /// Generate a single random safe email address.
@@ -798,13 +1053,27 @@ impl Faker {
     }
 
     /// Generate a batch of random free email addresses (gmail.com, etc.).
-    pub fn free_emails(&mut self, n: usize) -> Result<Vec<String>, BatchSizeError> {
+    ///
+    /// # Arguments
+    ///
+    /// * `n` - Number of emails to generate
+    /// * `unique` - If true, ensure all generated values are unique
+    ///
+    /// # Errors
+    ///
+    /// Returns `ForgeryError` if `n` exceeds the maximum batch size or
+    /// if unique generation cannot produce enough unique values.
+    pub fn free_emails(&mut self, n: usize, unique: bool) -> Result<Vec<String>, ForgeryError> {
         validate_batch_size(n)?;
-        Ok(providers::internet::generate_free_emails(
-            &mut self.rng,
-            self.locale,
-            n,
-        ))
+        if unique {
+            self.generate_unique(n, providers::internet::generate_free_email)
+        } else {
+            Ok(providers::internet::generate_free_emails(
+                &mut self.rng,
+                self.locale,
+                n,
+            ))
+        }
     }
 
     /// Generate a single random free email address.
@@ -834,6 +1103,245 @@ impl Faker {
     /// Generate a single random IBAN with valid checksum.
     pub fn iban(&mut self) -> String {
         providers::finance::generate_iban(&mut self.rng)
+    }
+
+    /// Generate a batch of random BIC/SWIFT codes.
+    pub fn bics(&mut self, n: usize) -> Result<Vec<String>, BatchSizeError> {
+        validate_batch_size(n)?;
+        Ok(providers::finance::generate_bics(&mut self.rng, n))
+    }
+
+    /// Generate a single random BIC/SWIFT code.
+    pub fn bic(&mut self) -> String {
+        providers::finance::generate_bic(&mut self.rng)
+    }
+
+    /// Generate a batch of random bank account numbers.
+    pub fn bank_accounts(&mut self, n: usize) -> Result<Vec<String>, BatchSizeError> {
+        validate_batch_size(n)?;
+        Ok(providers::finance::generate_bank_accounts(&mut self.rng, n))
+    }
+
+    /// Generate a single random bank account number.
+    pub fn bank_account(&mut self) -> String {
+        providers::finance::generate_bank_account(&mut self.rng)
+    }
+
+    /// Generate a batch of random bank names.
+    ///
+    /// # Arguments
+    ///
+    /// * `n` - Number of bank names to generate
+    /// * `unique` - If true, ensure all generated values are unique
+    ///
+    /// # Errors
+    ///
+    /// Returns `ForgeryError` if `n` exceeds the maximum batch size or
+    /// if unique generation cannot produce enough unique values.
+    pub fn bank_names(&mut self, n: usize, unique: bool) -> Result<Vec<String>, ForgeryError> {
+        validate_batch_size(n)?;
+        if unique {
+            self.generate_unique(n, providers::finance::generate_bank_name)
+        } else {
+            Ok(providers::finance::generate_bank_names(
+                &mut self.rng,
+                self.locale,
+                n,
+            ))
+        }
+    }
+
+    /// Generate a single random bank name.
+    pub fn bank_name(&mut self) -> String {
+        providers::finance::generate_bank_name(&mut self.rng, self.locale)
+    }
+
+    /// Generate a batch of UK sort codes.
+    ///
+    /// # Arguments
+    ///
+    /// * `n` - Number of sort codes to generate
+    ///
+    /// # Returns
+    ///
+    /// Sort codes in XX-XX-XX format (e.g., "12-34-56")
+    pub fn sort_codes(&mut self, n: usize) -> Result<Vec<String>, BatchSizeError> {
+        validate_batch_size(n)?;
+        Ok(providers::finance::generate_sort_codes(&mut self.rng, n))
+    }
+
+    /// Generate a single UK sort code.
+    ///
+    /// # Returns
+    ///
+    /// A sort code in XX-XX-XX format (e.g., "12-34-56")
+    pub fn sort_code(&mut self) -> String {
+        providers::finance::generate_sort_code(&mut self.rng)
+    }
+
+    /// Generate a batch of UK bank account numbers.
+    ///
+    /// # Arguments
+    ///
+    /// * `n` - Number of account numbers to generate
+    ///
+    /// # Returns
+    ///
+    /// Account numbers as exactly 8 digits (UK standard format)
+    pub fn uk_account_numbers(&mut self, n: usize) -> Result<Vec<String>, BatchSizeError> {
+        validate_batch_size(n)?;
+        Ok(providers::finance::generate_uk_account_numbers(
+            &mut self.rng,
+            n,
+        ))
+    }
+
+    /// Generate a single UK bank account number.
+    ///
+    /// # Returns
+    ///
+    /// An account number as exactly 8 digits (UK standard format)
+    pub fn uk_account_number(&mut self) -> String {
+        providers::finance::generate_uk_account_number(&mut self.rng)
+    }
+
+    /// Generate a batch of financial transactions.
+    ///
+    /// # Arguments
+    ///
+    /// * `n` - Number of transactions to generate
+    /// * `starting_balance` - The opening balance before the first transaction
+    /// * `start_date` - Start date in YYYY-MM-DD format
+    /// * `end_date` - End date in YYYY-MM-DD format
+    ///
+    /// # Returns
+    ///
+    /// A list of transactions, each containing reference, date, amount,
+    /// transaction_type, description, and running balance. Transactions
+    /// are sorted chronologically.
+    pub fn transactions(
+        &mut self,
+        n: usize,
+        starting_balance: f64,
+        start_date: &str,
+        end_date: &str,
+    ) -> Result<Vec<providers::finance::Transaction>, BatchSizeError> {
+        validate_batch_size(n)?;
+        Ok(providers::finance::generate_transactions(
+            &mut self.rng,
+            n,
+            starting_balance,
+            start_date,
+            end_date,
+        ))
+    }
+
+    /// Generate a batch of transaction amounts.
+    ///
+    /// # Arguments
+    ///
+    /// * `n` - Number of amounts to generate
+    /// * `min` - Minimum amount (inclusive)
+    /// * `max` - Maximum amount (inclusive)
+    ///
+    /// # Returns
+    ///
+    /// Transaction amounts rounded to 2 decimal places
+    pub fn transaction_amounts(
+        &mut self,
+        n: usize,
+        min: f64,
+        max: f64,
+    ) -> Result<Vec<f64>, BatchSizeError> {
+        validate_batch_size(n)?;
+        Ok(providers::finance::generate_transaction_amounts(
+            &mut self.rng,
+            n,
+            min,
+            max,
+        ))
+    }
+
+    /// Generate a single transaction amount.
+    ///
+    /// # Arguments
+    ///
+    /// * `min` - Minimum amount (inclusive)
+    /// * `max` - Maximum amount (inclusive)
+    ///
+    /// # Returns
+    ///
+    /// A transaction amount rounded to 2 decimal places
+    pub fn transaction_amount(&mut self, min: f64, max: f64) -> f64 {
+        providers::finance::generate_transaction_amount(&mut self.rng, min, max)
+    }
+
+    // === Password Generation ===
+
+    /// Generate a batch of random passwords.
+    ///
+    /// # Arguments
+    ///
+    /// * `n` - Number of passwords to generate
+    /// * `length` - Length of each password
+    /// * `uppercase` - Include uppercase letters
+    /// * `lowercase` - Include lowercase letters
+    /// * `digits` - Include digits
+    /// * `symbols` - Include symbols
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if no character sets are enabled or batch size exceeds maximum.
+    pub fn passwords(
+        &mut self,
+        n: usize,
+        length: usize,
+        uppercase: bool,
+        lowercase: bool,
+        digits: bool,
+        symbols: bool,
+    ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+        validate_batch_size(n)?;
+        Ok(providers::password::generate_passwords(
+            &mut self.rng,
+            n,
+            length,
+            uppercase,
+            lowercase,
+            digits,
+            symbols,
+        )?)
+    }
+
+    /// Generate a single random password.
+    ///
+    /// # Arguments
+    ///
+    /// * `length` - Length of the password
+    /// * `uppercase` - Include uppercase letters
+    /// * `lowercase` - Include lowercase letters
+    /// * `digits` - Include digits
+    /// * `symbols` - Include symbols
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if no character sets are enabled.
+    pub fn password(
+        &mut self,
+        length: usize,
+        uppercase: bool,
+        lowercase: bool,
+        digits: bool,
+        symbols: bool,
+    ) -> Result<String, providers::password::PasswordError> {
+        providers::password::generate_password(
+            &mut self.rng,
+            length,
+            uppercase,
+            lowercase,
+            digits,
+            symbols,
+        )
     }
 
     // === Records Generation ===
@@ -1075,23 +1583,23 @@ impl Faker {
     }
 
     /// Generate a batch of random full names.
-    #[pyo3(name = "names")]
-    fn py_names(&mut self, n: usize) -> PyResult<Vec<String>> {
-        self.names(n)
+    #[pyo3(name = "names", signature = (n, unique=false))]
+    fn py_names(&mut self, n: usize, unique: bool) -> PyResult<Vec<String>> {
+        self.names(n, unique)
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     /// Generate a batch of random first names.
-    #[pyo3(name = "first_names")]
-    fn py_first_names(&mut self, n: usize) -> PyResult<Vec<String>> {
-        self.first_names(n)
+    #[pyo3(name = "first_names", signature = (n, unique=false))]
+    fn py_first_names(&mut self, n: usize, unique: bool) -> PyResult<Vec<String>> {
+        self.first_names(n, unique)
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     /// Generate a batch of random last names.
-    #[pyo3(name = "last_names")]
-    fn py_last_names(&mut self, n: usize) -> PyResult<Vec<String>> {
-        self.last_names(n)
+    #[pyo3(name = "last_names", signature = (n, unique=false))]
+    fn py_last_names(&mut self, n: usize, unique: bool) -> PyResult<Vec<String>> {
+        self.last_names(n, unique)
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
@@ -1114,9 +1622,9 @@ impl Faker {
     }
 
     /// Generate a batch of random email addresses.
-    #[pyo3(name = "emails")]
-    fn py_emails(&mut self, n: usize) -> PyResult<Vec<String>> {
-        self.emails(n)
+    #[pyo3(name = "emails", signature = (n, unique=false))]
+    fn py_emails(&mut self, n: usize, unique: bool) -> PyResult<Vec<String>> {
+        self.emails(n, unique)
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
@@ -1200,9 +1708,9 @@ impl Faker {
     // === Color Generation ===
 
     /// Generate a batch of random color names.
-    #[pyo3(name = "colors")]
-    fn py_colors(&mut self, n: usize) -> PyResult<Vec<String>> {
-        self.colors(n)
+    #[pyo3(name = "colors", signature = (n, unique=false))]
+    fn py_colors(&mut self, n: usize, unique: bool) -> PyResult<Vec<String>> {
+        self.colors(n, unique)
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
@@ -1326,9 +1834,9 @@ impl Faker {
     // === Address Generation ===
 
     /// Generate a batch of random street addresses.
-    #[pyo3(name = "street_addresses")]
-    fn py_street_addresses(&mut self, n: usize) -> PyResult<Vec<String>> {
-        self.street_addresses(n)
+    #[pyo3(name = "street_addresses", signature = (n, unique=false))]
+    fn py_street_addresses(&mut self, n: usize, unique: bool) -> PyResult<Vec<String>> {
+        self.street_addresses(n, unique)
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
@@ -1339,9 +1847,9 @@ impl Faker {
     }
 
     /// Generate a batch of random cities.
-    #[pyo3(name = "cities")]
-    fn py_cities(&mut self, n: usize) -> PyResult<Vec<String>> {
-        self.cities(n)
+    #[pyo3(name = "cities", signature = (n, unique=false))]
+    fn py_cities(&mut self, n: usize, unique: bool) -> PyResult<Vec<String>> {
+        self.cities(n, unique)
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
@@ -1352,9 +1860,9 @@ impl Faker {
     }
 
     /// Generate a batch of random states.
-    #[pyo3(name = "states")]
-    fn py_states(&mut self, n: usize) -> PyResult<Vec<String>> {
-        self.states(n)
+    #[pyo3(name = "states", signature = (n, unique=false))]
+    fn py_states(&mut self, n: usize, unique: bool) -> PyResult<Vec<String>> {
+        self.states(n, unique)
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
@@ -1365,9 +1873,9 @@ impl Faker {
     }
 
     /// Generate a batch of random countries.
-    #[pyo3(name = "countries")]
-    fn py_countries(&mut self, n: usize) -> PyResult<Vec<String>> {
-        self.countries(n)
+    #[pyo3(name = "countries", signature = (n, unique=false))]
+    fn py_countries(&mut self, n: usize, unique: bool) -> PyResult<Vec<String>> {
+        self.countries(n, unique)
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
@@ -1378,9 +1886,9 @@ impl Faker {
     }
 
     /// Generate a batch of random zip codes.
-    #[pyo3(name = "zip_codes")]
-    fn py_zip_codes(&mut self, n: usize) -> PyResult<Vec<String>> {
-        self.zip_codes(n)
+    #[pyo3(name = "zip_codes", signature = (n, unique=false))]
+    fn py_zip_codes(&mut self, n: usize, unique: bool) -> PyResult<Vec<String>> {
+        self.zip_codes(n, unique)
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
@@ -1391,9 +1899,9 @@ impl Faker {
     }
 
     /// Generate a batch of random full addresses.
-    #[pyo3(name = "addresses")]
-    fn py_addresses(&mut self, n: usize) -> PyResult<Vec<String>> {
-        self.addresses(n)
+    #[pyo3(name = "addresses", signature = (n, unique=false))]
+    fn py_addresses(&mut self, n: usize, unique: bool) -> PyResult<Vec<String>> {
+        self.addresses(n, unique)
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
@@ -1406,9 +1914,9 @@ impl Faker {
     // === Phone Generation ===
 
     /// Generate a batch of random phone numbers.
-    #[pyo3(name = "phone_numbers")]
-    fn py_phone_numbers(&mut self, n: usize) -> PyResult<Vec<String>> {
-        self.phone_numbers(n)
+    #[pyo3(name = "phone_numbers", signature = (n, unique=false))]
+    fn py_phone_numbers(&mut self, n: usize, unique: bool) -> PyResult<Vec<String>> {
+        self.phone_numbers(n, unique)
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
@@ -1421,9 +1929,9 @@ impl Faker {
     // === Company Generation ===
 
     /// Generate a batch of random company names.
-    #[pyo3(name = "companies")]
-    fn py_companies(&mut self, n: usize) -> PyResult<Vec<String>> {
-        self.companies(n)
+    #[pyo3(name = "companies", signature = (n, unique=false))]
+    fn py_companies(&mut self, n: usize, unique: bool) -> PyResult<Vec<String>> {
+        self.companies(n, unique)
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
@@ -1434,9 +1942,9 @@ impl Faker {
     }
 
     /// Generate a batch of random job titles.
-    #[pyo3(name = "jobs")]
-    fn py_jobs(&mut self, n: usize) -> PyResult<Vec<String>> {
-        self.jobs(n)
+    #[pyo3(name = "jobs", signature = (n, unique=false))]
+    fn py_jobs(&mut self, n: usize, unique: bool) -> PyResult<Vec<String>> {
+        self.jobs(n, unique)
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
@@ -1447,9 +1955,9 @@ impl Faker {
     }
 
     /// Generate a batch of random catch phrases.
-    #[pyo3(name = "catch_phrases")]
-    fn py_catch_phrases(&mut self, n: usize) -> PyResult<Vec<String>> {
-        self.catch_phrases(n)
+    #[pyo3(name = "catch_phrases", signature = (n, unique=false))]
+    fn py_catch_phrases(&mut self, n: usize, unique: bool) -> PyResult<Vec<String>> {
+        self.catch_phrases(n, unique)
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
@@ -1529,9 +2037,9 @@ impl Faker {
     // === Email Variants ===
 
     /// Generate a batch of random safe email addresses (example.com/org/net).
-    #[pyo3(name = "safe_emails")]
-    fn py_safe_emails(&mut self, n: usize) -> PyResult<Vec<String>> {
-        self.safe_emails(n)
+    #[pyo3(name = "safe_emails", signature = (n, unique=false))]
+    fn py_safe_emails(&mut self, n: usize, unique: bool) -> PyResult<Vec<String>> {
+        self.safe_emails(n, unique)
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
@@ -1542,9 +2050,9 @@ impl Faker {
     }
 
     /// Generate a batch of random free email addresses (gmail.com, etc.).
-    #[pyo3(name = "free_emails")]
-    fn py_free_emails(&mut self, n: usize) -> PyResult<Vec<String>> {
-        self.free_emails(n)
+    #[pyo3(name = "free_emails", signature = (n, unique=false))]
+    fn py_free_emails(&mut self, n: usize, unique: bool) -> PyResult<Vec<String>> {
+        self.free_emails(n, unique)
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
@@ -1580,6 +2088,180 @@ impl Faker {
     #[pyo3(name = "iban")]
     fn py_iban(&mut self) -> String {
         self.iban()
+    }
+
+    /// Generate a batch of random BIC/SWIFT codes.
+    #[pyo3(name = "bics")]
+    fn py_bics(&mut self, n: usize) -> PyResult<Vec<String>> {
+        self.bics(n)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
+    /// Generate a single random BIC/SWIFT code.
+    #[pyo3(name = "bic")]
+    fn py_bic(&mut self) -> String {
+        self.bic()
+    }
+
+    /// Generate a batch of random bank account numbers.
+    #[pyo3(name = "bank_accounts")]
+    fn py_bank_accounts(&mut self, n: usize) -> PyResult<Vec<String>> {
+        self.bank_accounts(n)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
+    /// Generate a single random bank account number.
+    #[pyo3(name = "bank_account")]
+    fn py_bank_account(&mut self) -> String {
+        self.bank_account()
+    }
+
+    /// Generate a batch of random bank names.
+    #[pyo3(name = "bank_names", signature = (n, unique=false))]
+    fn py_bank_names(&mut self, n: usize, unique: bool) -> PyResult<Vec<String>> {
+        self.bank_names(n, unique)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
+    /// Generate a single random bank name.
+    #[pyo3(name = "bank_name")]
+    fn py_bank_name(&mut self) -> String {
+        self.bank_name()
+    }
+
+    /// Generate a batch of UK sort codes.
+    #[pyo3(name = "sort_codes")]
+    fn py_sort_codes(&mut self, n: usize) -> PyResult<Vec<String>> {
+        self.sort_codes(n)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
+    /// Generate a single UK sort code (format: XX-XX-XX).
+    #[pyo3(name = "sort_code")]
+    fn py_sort_code(&mut self) -> String {
+        self.sort_code()
+    }
+
+    /// Generate a batch of UK bank account numbers (8 digits).
+    #[pyo3(name = "uk_account_numbers")]
+    fn py_uk_account_numbers(&mut self, n: usize) -> PyResult<Vec<String>> {
+        self.uk_account_numbers(n)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
+    /// Generate a single UK bank account number (8 digits).
+    #[pyo3(name = "uk_account_number")]
+    fn py_uk_account_number(&mut self) -> String {
+        self.uk_account_number()
+    }
+
+    /// Generate a batch of financial transactions.
+    ///
+    /// Args:
+    ///     n: Number of transactions to generate
+    ///     starting_balance: Opening balance before first transaction
+    ///     start_date: Start date in YYYY-MM-DD format
+    ///     end_date: End date in YYYY-MM-DD format
+    ///
+    /// Returns:
+    ///     List of transaction dicts with keys: reference, date, amount,
+    ///     transaction_type, description, balance
+    #[pyo3(name = "transactions")]
+    fn py_transactions(
+        &mut self,
+        py: Python<'_>,
+        n: usize,
+        starting_balance: f64,
+        start_date: &str,
+        end_date: &str,
+    ) -> PyResult<Vec<Py<PyAny>>> {
+        let txns = self
+            .transactions(n, starting_balance, start_date, end_date)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+
+        txns.into_iter()
+            .map(|t| {
+                let dict = PyDict::new(py);
+                dict.set_item("reference", &t.reference)?;
+                dict.set_item("date", &t.date)?;
+                dict.set_item("amount", t.amount)?;
+                dict.set_item("transaction_type", &t.transaction_type)?;
+                dict.set_item("description", &t.description)?;
+                dict.set_item("balance", t.balance)?;
+                dict.into_py_any(py)
+            })
+            .collect()
+    }
+
+    /// Generate a batch of transaction amounts.
+    #[pyo3(name = "transaction_amounts")]
+    fn py_transaction_amounts(&mut self, n: usize, min: f64, max: f64) -> PyResult<Vec<f64>> {
+        self.transaction_amounts(n, min, max)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
+    /// Generate a single transaction amount.
+    #[pyo3(name = "transaction_amount")]
+    fn py_transaction_amount(&mut self, min: f64, max: f64) -> f64 {
+        self.transaction_amount(min, max)
+    }
+
+    // === Password Generation ===
+
+    /// Generate a batch of random passwords.
+    ///
+    /// Args:
+    ///     n: Number of passwords to generate
+    ///     length: Length of each password (default: 12)
+    ///     uppercase: Include uppercase letters (default: True)
+    ///     lowercase: Include lowercase letters (default: True)
+    ///     digits: Include digits (default: True)
+    ///     symbols: Include symbols (default: True)
+    ///
+    /// Returns:
+    ///     List of random passwords
+    ///
+    /// Raises:
+    ///     ValueError: If no character sets are enabled or batch size exceeds limit
+    #[pyo3(name = "passwords", signature = (n, length=12, uppercase=true, lowercase=true, digits=true, symbols=true))]
+    fn py_passwords(
+        &mut self,
+        n: usize,
+        length: usize,
+        uppercase: bool,
+        lowercase: bool,
+        digits: bool,
+        symbols: bool,
+    ) -> PyResult<Vec<String>> {
+        self.passwords(n, length, uppercase, lowercase, digits, symbols)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
+    /// Generate a single random password.
+    ///
+    /// Args:
+    ///     length: Length of the password (default: 12)
+    ///     uppercase: Include uppercase letters (default: True)
+    ///     lowercase: Include lowercase letters (default: True)
+    ///     digits: Include digits (default: True)
+    ///     symbols: Include symbols (default: True)
+    ///
+    /// Returns:
+    ///     A random password
+    ///
+    /// Raises:
+    ///     ValueError: If no character sets are enabled
+    #[pyo3(name = "password", signature = (length=12, uppercase=true, lowercase=true, digits=true, symbols=true))]
+    fn py_password(
+        &mut self,
+        length: usize,
+        uppercase: bool,
+        lowercase: bool,
+        digits: bool,
+        symbols: bool,
+    ) -> PyResult<String> {
+        self.password(length, uppercase, lowercase, digits, symbols)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     // === Custom Providers ===
@@ -2248,8 +2930,8 @@ mod tests {
         faker1.seed(42);
         faker2.seed(42);
 
-        let names1 = faker1.names(10).unwrap();
-        let names2 = faker2.names(10).unwrap();
+        let names1 = faker1.names(10, false).unwrap();
+        let names2 = faker2.names(10, false).unwrap();
 
         assert_eq!(names1, names2);
     }
@@ -2259,10 +2941,10 @@ mod tests {
         let mut faker = Faker::new("en_US").unwrap();
         faker.seed(123);
 
-        let names = faker.names(100).unwrap();
+        let names = faker.names(100, false).unwrap();
         assert_eq!(names.len(), 100);
 
-        let emails = faker.emails(50).unwrap();
+        let emails = faker.emails(50, false).unwrap();
         assert_eq!(emails.len(), 50);
 
         let ints = faker.integers(200, 0, 1000).unwrap();
@@ -2275,7 +2957,34 @@ mod tests {
     #[test]
     fn test_batch_size_error() {
         let mut faker = Faker::new_default();
-        let result = faker.names(MAX_BATCH_SIZE + 1);
+        let result = faker.names(MAX_BATCH_SIZE + 1, false);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_unique_generation() {
+        let mut faker = Faker::new_default();
+        faker.seed(42);
+
+        // Generate unique names
+        let names = faker.names(50, true).unwrap();
+        assert_eq!(names.len(), 50);
+
+        // Verify all names are unique
+        let mut seen = std::collections::HashSet::new();
+        for name in &names {
+            assert!(seen.insert(name.clone()), "Duplicate name found: {}", name);
+        }
+    }
+
+    #[test]
+    fn test_unique_exhaustion() {
+        let mut faker = Faker::new_default();
+        faker.seed(42);
+
+        // Try to generate more unique cities than exist in the data
+        // This should fail with UniqueExhaustedError
+        let result = faker.cities(10000, true);
         assert!(result.is_err());
     }
 

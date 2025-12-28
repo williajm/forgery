@@ -15,6 +15,7 @@ pub mod internet;
 pub mod names;
 pub mod network;
 pub mod numbers;
+pub mod password;
 pub mod phone;
 pub mod records;
 pub mod text;

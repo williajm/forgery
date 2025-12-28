@@ -1,0 +1,30 @@
+//! Bank name data for en_US locale.
+
+/// US bank names.
+pub const BANK_NAMES: &[&str] = &[
+    "JPMorgan Chase",
+    "Bank of America",
+    "Wells Fargo",
+    "Citibank",
+    "U.S. Bank",
+    "PNC Bank",
+    "Truist Bank",
+    "Goldman Sachs",
+    "TD Bank",
+    "Capital One",
+    "Fifth Third Bank",
+    "Citizens Bank",
+    "KeyBank",
+    "Huntington Bank",
+    "Ally Bank",
+    "HSBC Bank USA",
+    "BMO Harris Bank",
+    "Regions Bank",
+    "M&T Bank",
+    "First Republic Bank",
+    "Synchrony Bank",
+    "Charles Schwab Bank",
+    "Discover Bank",
+    "American Express Bank",
+    "USAA Federal Savings Bank",
+];
