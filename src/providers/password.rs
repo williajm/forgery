@@ -65,7 +65,9 @@ pub fn generate_passwords(
 
     let mut passwords = Vec::with_capacity(n);
     for _ in 0..n {
-        passwords.push(generate_password_with_guarantee(rng, length, &pool, &charsets));
+        passwords.push(generate_password_with_guarantee(
+            rng, length, &pool, &charsets,
+        ));
     }
     Ok(passwords)
 }
@@ -113,7 +115,9 @@ pub fn generate_password(
     }
 
     let pool = build_char_pool(uppercase, lowercase, digits, symbols)?;
-    Ok(generate_password_with_guarantee(rng, length, &pool, &charsets))
+    Ok(generate_password_with_guarantee(
+        rng, length, &pool, &charsets,
+    ))
 }
 
 /// Build a list of enabled character sets.
@@ -366,16 +370,8 @@ mod tests {
             let has_digit = password.chars().any(|c| c.is_ascii_digit());
             let has_symbol = password.chars().any(|c| SYMBOLS.contains(&(c as u8)));
 
-            assert!(
-                has_upper,
-                "Password should contain uppercase: {}",
-                password
-            );
-            assert!(
-                has_lower,
-                "Password should contain lowercase: {}",
-                password
-            );
+            assert!(has_upper, "Password should contain uppercase: {}", password);
+            assert!(has_lower, "Password should contain lowercase: {}", password);
             assert!(has_digit, "Password should contain digit: {}", password);
             assert!(has_symbol, "Password should contain symbol: {}", password);
         }
