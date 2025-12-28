@@ -20,15 +20,14 @@ crate::define_company_data! {
         "Responsable Logistique", "Conseiller Client", "Chef d'Équipe",
         "Responsable de Service", "Ingénieur", "Technicien", "Comptable",
     ],
-    // Catch phrase components
     adjectives: [
-        "Innovante", "Dynamique", "Durable", "Intégrée", "Stratégique", "Moderne",
-        "Efficace", "Flexible", "Professionnelle", "Premium", "Fiable", "Sur mesure",
-        "Globale", "Avant-gardiste", "Orientée client",
+        "Innovante", "Dynamique", "Durable", "Intégrée", "Stratégique",
+        "Moderne", "Efficace", "Flexible", "Professionnelle", "Premium",
+        "Fiable", "Sur mesure", "Globale", "Avant-gardiste", "Orientée client",
     ],
     nouns: [
-        "solutions", "services", "produits", "systèmes", "concepts", "stratégies",
-        "technologies", "innovations", "partenariats", "qualité", "conseil",
-        "expertise", "expérience", "compétences", "performances",
+        "solutions", "services", "produits", "systèmes", "concepts",
+        "stratégies", "technologies", "innovations", "partenariats",
+        "qualité", "conseil", "expertise", "expérience", "compétences", "performances",
     ],
 }
