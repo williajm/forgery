@@ -1,6 +1,7 @@
 """Type stubs for the Rust extension module."""
 
 import builtins
+from collections.abc import Coroutine
 from typing import Any
 
 # Records schema types (matching forgery/__init__.pyi for consistency)
@@ -484,6 +485,86 @@ class Faker:
 
         Returns:
             A pyarrow.RecordBatch with the generated data.
+
+        Raises:
+            ValueError: If n exceeds the maximum batch size or schema is invalid.
+            ImportError: If pyarrow is not installed.
+        """
+        ...
+
+    # Async records generators
+    def records_async(
+        self, n: int, schema: Schema, chunk_size: int | None = None
+    ) -> Coroutine[Any, Any, list[dict[str, FieldValue]]]:
+        """Generate structured records asynchronously for non-blocking batch generation.
+
+        This method generates records in chunks, yielding control between chunks
+        to allow other async tasks to run. Ideal for generating millions of records
+        without blocking the event loop.
+
+        Note on RNG State:
+            The async methods use a snapshot of the RNG state at call time. The main
+            Faker instance's RNG is not advanced. For different results on each call,
+            create separate Faker instances or re-seed between calls.
+
+        Args:
+            n: Number of records to generate.
+            schema: Dictionary mapping field names to type specifications.
+            chunk_size: Number of records per chunk (default: 10,000).
+
+        Returns:
+            A coroutine that resolves to a list of dictionaries.
+
+        Raises:
+            ValueError: If n exceeds the maximum batch size or schema is invalid.
+        """
+        ...
+
+    def records_tuples_async(
+        self, n: int, schema: Schema, chunk_size: int | None = None
+    ) -> Coroutine[Any, Any, list[tuple[FieldValue, ...]]]:
+        """Generate structured records as tuples asynchronously.
+
+        Similar to records_async() but returns tuples instead of dictionaries,
+        which is faster for large datasets. Values are returned in alphabetical
+        order of the schema keys.
+
+        Args:
+            n: Number of records to generate.
+            schema: Dictionary mapping field names to type specifications.
+            chunk_size: Number of records per chunk (default: 10,000).
+
+        Returns:
+            A coroutine that resolves to a list of tuples.
+
+        Raises:
+            ValueError: If n exceeds the maximum batch size or schema is invalid.
+        """
+        ...
+
+    def records_arrow_async(
+        self, n: int, schema: Schema, chunk_size: int | None = None
+    ) -> Coroutine[Any, Any, Any]:
+        """Generate structured records as a PyArrow RecordBatch asynchronously.
+
+        This is the high-performance async path for generating structured data.
+        Generates data in chunks and concatenates them into a single RecordBatch.
+
+        Important: Chunking Affects Output
+            When n > chunk_size, the output differs from records_arrow() due to
+            column-major RNG consumption within each chunk. For identical results
+            to the sync version, set chunk_size >= n.
+
+        Note:
+            Requires pyarrow to be installed: pip install pyarrow
+
+        Args:
+            n: Number of records to generate.
+            schema: Dictionary mapping field names to type specifications.
+            chunk_size: Number of records per chunk (default: 10,000).
+
+        Returns:
+            A coroutine that resolves to a PyArrow RecordBatch.
 
         Raises:
             ValueError: If n exceeds the maximum batch size or schema is invalid.

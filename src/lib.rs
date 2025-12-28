@@ -886,6 +886,26 @@ impl Faker {
         )?)
     }
 
+    /// Generate records as an Arrow RecordBatch based on a schema.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the batch size exceeds the maximum or the schema is invalid.
+    pub fn records_arrow(
+        &mut self,
+        n: usize,
+        schema: &BTreeMap<String, providers::records::FieldSpec>,
+    ) -> Result<arrow_array::RecordBatch, Box<dyn std::error::Error>> {
+        validate_batch_size(n)?;
+        Ok(providers::records::generate_records_arrow_with_custom(
+            &mut self.rng,
+            self.locale,
+            n,
+            schema,
+            &self.custom_providers,
+        )?)
+    }
+
     // === Custom Providers ===
 
     /// Register a custom provider with uniform random selection.
@@ -1810,6 +1830,229 @@ impl Faker {
         // Convert to PyArrow RecordBatch via pyo3-arrow
         let py_batch = PyRecordBatch::new(record_batch);
         py_batch.into_pyarrow(py).map(|bound| bound.unbind())
+    }
+
+    // ============================================================================
+    // Async Methods
+    // ============================================================================
+
+    /// Generate records asynchronously for non-blocking batch generation.
+    ///
+    /// This method generates records in chunks, yielding control between chunks
+    /// to allow other async tasks to run. Ideal for generating millions of records
+    /// without blocking the event loop.
+    ///
+    /// # Arguments
+    ///
+    /// * `n` - Number of records to generate
+    /// * `schema` - Schema dictionary mapping field names to type specifications
+    /// * `chunk_size` - Optional number of records per chunk (default: 10,000)
+    ///
+    /// # Returns
+    ///
+    /// A coroutine that resolves to a list of dictionaries.
+    ///
+    /// # Note on RNG State
+    ///
+    /// The async methods use a snapshot of the RNG state at call time. The main
+    /// Faker instance's RNG is not advanced. For different results on each call,
+    /// create separate Faker instances or re-seed between calls.
+    ///
+    /// # Example
+    ///
+    /// ```python
+    /// import asyncio
+    /// from forgery import Faker
+    ///
+    /// async def main():
+    ///     fake = Faker()
+    ///     records = await fake.records_async(1_000_000, {
+    ///         "name": "name",
+    ///         "email": "email",
+    ///     })
+    ///     print(f"Generated {len(records)} records")
+    ///
+    /// asyncio.run(main())
+    /// ```
+    #[pyo3(name = "records_async", signature = (n, schema, chunk_size = None))]
+    fn py_records_async<'py>(
+        &self,
+        py: Python<'py>,
+        n: usize,
+        schema: &Bound<'py, PyDict>,
+        chunk_size: Option<usize>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        use pyo3_async_runtimes::tokio::future_into_py;
+
+        let mut state = self.prepare_async_state(n, schema, chunk_size)?;
+
+        future_into_py(py, async move {
+            let records = providers::async_records::generate_records_async(
+                &mut state.rng,
+                state.locale,
+                n,
+                &state.schema,
+                state.chunk_size,
+                &state.custom_providers,
+            )
+            .await
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+
+            // Convert to Python objects
+            Python::attach(|py| {
+                let py_records: PyResult<Vec<Py<PyAny>>> = records
+                    .into_iter()
+                    .map(|record| {
+                        let dict = PyDict::new(py);
+                        for (key, value) in record {
+                            dict.set_item(key, value_to_pyobject(py, value)?)?;
+                        }
+                        dict.into_py_any(py)
+                    })
+                    .collect();
+                py_records
+            })
+        })
+    }
+
+    /// Generate records as tuples asynchronously for non-blocking batch generation.
+    ///
+    /// Similar to records_async() but returns tuples instead of dictionaries,
+    /// which is faster for large datasets.
+    ///
+    /// # Arguments
+    ///
+    /// * `n` - Number of records to generate
+    /// * `schema` - Schema dictionary mapping field names to type specifications
+    /// * `chunk_size` - Optional number of records per chunk (default: 10,000)
+    ///
+    /// # Returns
+    ///
+    /// A coroutine that resolves to a list of tuples (values in alphabetical field order).
+    #[pyo3(name = "records_tuples_async", signature = (n, schema, chunk_size = None))]
+    fn py_records_tuples_async<'py>(
+        &self,
+        py: Python<'py>,
+        n: usize,
+        schema: &Bound<'py, PyDict>,
+        chunk_size: Option<usize>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        use pyo3_async_runtimes::tokio::future_into_py;
+
+        let mut state = self.prepare_async_state(n, schema, chunk_size)?;
+        let field_order: Vec<String> = state.schema.keys().cloned().collect();
+
+        future_into_py(py, async move {
+            let records = providers::async_records::generate_records_tuples_async(
+                &mut state.rng,
+                state.locale,
+                n,
+                &state.schema,
+                &field_order,
+                state.chunk_size,
+                &state.custom_providers,
+            )
+            .await
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+
+            // Convert to Python objects
+            Python::attach(|py| {
+                let py_records: PyResult<Vec<Py<PyAny>>> = records
+                    .into_iter()
+                    .map(|record| {
+                        let values: Vec<Py<PyAny>> = record
+                            .into_iter()
+                            .map(|v| value_to_pyobject(py, v))
+                            .collect::<PyResult<_>>()?;
+                        PyTuple::new(py, values)?.into_py_any(py)
+                    })
+                    .collect();
+                py_records
+            })
+        })
+    }
+
+    /// Generate records as an Arrow RecordBatch asynchronously.
+    ///
+    /// This is the high-performance async path for generating structured data.
+    /// Generates data in chunks and concatenates them into a single RecordBatch.
+    ///
+    /// # Arguments
+    ///
+    /// * `n` - Number of records to generate
+    /// * `schema` - Schema dictionary mapping field names to type specifications
+    /// * `chunk_size` - Optional number of records per chunk (default: 10,000)
+    ///
+    /// # Returns
+    ///
+    /// A coroutine that resolves to a PyArrow RecordBatch.
+    #[pyo3(name = "records_arrow_async", signature = (n, schema, chunk_size = None))]
+    fn py_records_arrow_async<'py>(
+        &self,
+        py: Python<'py>,
+        n: usize,
+        schema: &Bound<'py, PyDict>,
+        chunk_size: Option<usize>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        use pyo3_async_runtimes::tokio::future_into_py;
+
+        let mut state = self.prepare_async_state(n, schema, chunk_size)?;
+
+        future_into_py(py, async move {
+            let record_batch = providers::async_records::generate_records_arrow_async(
+                &mut state.rng,
+                state.locale,
+                n,
+                &state.schema,
+                state.chunk_size,
+                &state.custom_providers,
+            )
+            .await
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+
+            // Convert to PyArrow RecordBatch
+            // Preserve original error type (e.g., ImportError if pyarrow missing)
+            Python::attach(|py| {
+                let py_batch = PyRecordBatch::new(record_batch);
+                py_batch.into_pyarrow(py).map(|bound| bound.unbind())
+            })
+        })
+    }
+}
+
+/// Prepared state for async record generation operations.
+///
+/// This struct bundles all the validated and cloned state needed for async operations,
+/// reducing code duplication across the three async methods.
+struct AsyncRecordState {
+    rng: ForgeryRng,
+    locale: Locale,
+    schema: BTreeMap<String, providers::records::FieldSpec>,
+    chunk_size: usize,
+    custom_providers: HashMap<String, CustomProvider>,
+}
+
+impl Faker {
+    /// Prepare state for async record generation.
+    ///
+    /// Validates inputs and clones necessary state for use in async blocks.
+    fn prepare_async_state(
+        &self,
+        n: usize,
+        schema: &Bound<'_, PyDict>,
+        chunk_size: Option<usize>,
+    ) -> PyResult<AsyncRecordState> {
+        validate_batch_size(n).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let custom_names = self.custom_provider_names();
+        let rust_schema = parse_py_schema_with_custom(schema, &custom_names)?;
+
+        Ok(AsyncRecordState {
+            rng: self.rng.clone(),
+            locale: self.locale,
+            schema: rust_schema,
+            chunk_size: chunk_size.unwrap_or(providers::async_records::DEFAULT_CHUNK_SIZE),
+            custom_providers: self.custom_providers.clone(),
+        })
     }
 }
 

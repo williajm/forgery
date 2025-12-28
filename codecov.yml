@@ -6,3 +6,8 @@ coverage:
     patch:
       default:
         target: 80%
+
+ignore:
+  # PyO3 binding code can only be tested from Python, not cargo test
+  # The underlying Rust functions have full test coverage
+  - "src/lib.rs"
