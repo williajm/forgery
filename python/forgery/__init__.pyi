@@ -1,5 +1,6 @@
 """Type stubs for the forgery package."""
 
+from collections.abc import Coroutine
 from typing import Any
 
 from forgery._forgery import Faker as Faker
@@ -455,6 +456,56 @@ def records_arrow(n: int, schema: Schema) -> Any:
         ValueError: If n exceeds the maximum batch size (10 million)
             or if the schema contains invalid specifications.
         ImportError: If pyarrow is not installed.
+    """
+    ...
+
+# Async Records generation
+
+def records_async(
+    n: int, schema: Schema, chunk_size: int | None = None
+) -> Coroutine[Any, Any, list[dict[str, FieldValue]]]:
+    """Generate structured records asynchronously for non-blocking batch generation.
+
+    Args:
+        n: Number of records to generate.
+        schema: Dictionary mapping field names to type specifications.
+        chunk_size: Number of records per chunk (default: 10,000).
+
+    Returns:
+        A coroutine that resolves to a list of dictionaries.
+    """
+    ...
+
+def records_tuples_async(
+    n: int, schema: Schema, chunk_size: int | None = None
+) -> Coroutine[Any, Any, list[tuple[FieldValue, ...]]]:
+    """Generate structured records as tuples asynchronously.
+
+    Args:
+        n: Number of records to generate.
+        schema: Dictionary mapping field names to type specifications.
+        chunk_size: Number of records per chunk (default: 10,000).
+
+    Returns:
+        A coroutine that resolves to a list of tuples.
+    """
+    ...
+
+def records_arrow_async(
+    n: int, schema: Schema, chunk_size: int | None = None
+) -> Coroutine[Any, Any, Any]:
+    """Generate structured records as a PyArrow RecordBatch asynchronously.
+
+    Args:
+        n: Number of records to generate.
+        schema: Dictionary mapping field names to type specifications.
+        chunk_size: Number of records per chunk (default: 10,000).
+
+    Returns:
+        A coroutine that resolves to a pyarrow.RecordBatch.
+
+    Note:
+        Requires pyarrow to be installed.
     """
     ...
 

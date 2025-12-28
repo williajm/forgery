@@ -517,12 +517,11 @@ class Faker:
         """Generate a single random bank name (locale-specific)."""
         ...
 
-    def bank_names(self, n: int, unique: bool = False) -> list[str]:
-        """Generate a batch of random bank names.
+    def bank_names(self, n: int) -> list[str]:
+        """Generate a batch of random bank names (locale-specific).
 
         Args:
             n: Number of bank names to generate.
-            unique: If True, ensure all generated values are unique.
         """
         ...
 

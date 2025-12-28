@@ -236,7 +236,7 @@ Password options:
 
 ## Unique Value Generation
 
-For batch methods that select from finite lists (names, cities, countries, bank names, etc.), you can request unique values:
+For batch methods that select from finite lists (names, cities, countries, etc.), you can request unique values:
 
 ```python
 from forgery import Faker
@@ -248,14 +248,17 @@ fake.seed(42)
 unique_names = fake.names(50, unique=True)
 assert len(unique_names) == len(set(unique_names))
 
-# Generate 10 unique bank names
-unique_banks = fake.bank_names(10, unique=True)
-
 # Generate 20 unique cities
 unique_cities = fake.cities(20, unique=True)
+
+# Generate 50 unique countries
+unique_countries = fake.countries(50, unique=True)
 ```
 
-**Note:** Unique generation will raise `ValueError` if you request more unique values than are available in the underlying data set.
+**Important Notes:**
+
+- Unique generation will raise `ValueError` if you request more unique values than are available in the underlying data set.
+- **Performance:** Unique generation uses O(n) memory (stores all outputs in a HashSet) and can be O(n × 100) time in worst case due to retry logic. For very large unique batches, consider whether duplicates are actually problematic for your use case.
 
 ## Financial Transaction Generation
 

@@ -224,14 +224,6 @@ class TestUniqueGeneration:
         with pytest.raises(ValueError, match="unique"):
             fake.cities(10000, unique=True)
 
-    def test_unique_bank_names(self) -> None:
-        """Test unique bank name generation."""
-        fake = Faker()
-        fake.seed(42)
-        names = fake.bank_names(10, unique=True)
-        assert len(names) == 10
-        assert len(set(names)) == 10  # All unique
-
     def test_non_unique_allows_duplicates(self) -> None:
         """Test that non-unique mode allows duplicates."""
         fake = Faker()
@@ -543,14 +535,25 @@ class TestEdgeCases:
             assert txn["date"] == "2024-06-15"
 
     def test_password_minimum_length(self) -> None:
-        """Test password with minimum length of 1."""
-        pwd = password(length=1)
+        """Test password with minimum length for single charset."""
+        # With only one charset enabled, length 1 should work
+        pwd = password(length=1, uppercase=False, digits=False, symbols=False)
         assert len(pwd) == 1
+        assert pwd.islower()
 
-    def test_password_zero_length(self) -> None:
-        """Test password with length 0 returns empty string."""
-        pwd = password(length=0)
-        assert len(pwd) == 0
+    def test_password_length_too_short_error(self) -> None:
+        """Test password with length too short raises error."""
+        # With all 4 charsets enabled, need at least length 4
+        with pytest.raises(ValueError, match="too short"):
+            password(length=0)
+        with pytest.raises(ValueError, match="too short"):
+            password(length=3)
+
+    def test_password_minimum_all_charsets(self) -> None:
+        """Test password with minimum length for all charsets."""
+        # With all 4 charsets, length 4 should work
+        pwd = password(length=4)
+        assert len(pwd) == 4
 
     def test_transaction_negative_starting_balance(self) -> None:
         """Test transactions with negative starting balance."""

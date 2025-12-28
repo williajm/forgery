@@ -1132,23 +1132,17 @@ impl Faker {
     /// # Arguments
     ///
     /// * `n` - Number of bank names to generate
-    /// * `unique` - If true, ensure all generated values are unique
     ///
     /// # Errors
     ///
-    /// Returns `ForgeryError` if `n` exceeds the maximum batch size or
-    /// if unique generation cannot produce enough unique values.
-    pub fn bank_names(&mut self, n: usize, unique: bool) -> Result<Vec<String>, ForgeryError> {
+    /// Returns `BatchSizeError` if `n` exceeds the maximum batch size.
+    pub fn bank_names(&mut self, n: usize) -> Result<Vec<String>, BatchSizeError> {
         validate_batch_size(n)?;
-        if unique {
-            self.generate_unique(n, providers::finance::generate_bank_name)
-        } else {
-            Ok(providers::finance::generate_bank_names(
-                &mut self.rng,
-                self.locale,
-                n,
-            ))
-        }
+        Ok(providers::finance::generate_bank_names(
+            &mut self.rng,
+            self.locale,
+            n,
+        ))
     }
 
     /// Generate a single random bank name.
@@ -1251,19 +1245,23 @@ impl Faker {
     /// # Returns
     ///
     /// Transaction amounts rounded to 2 decimal places
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if batch size exceeds maximum or if min > max.
     pub fn transaction_amounts(
         &mut self,
         n: usize,
         min: f64,
         max: f64,
-    ) -> Result<Vec<f64>, BatchSizeError> {
+    ) -> Result<Vec<f64>, error::ForgeryError> {
         validate_batch_size(n)?;
         Ok(providers::finance::generate_transaction_amounts(
             &mut self.rng,
             n,
             min,
             max,
-        ))
+        )?)
     }
 
     /// Generate a single transaction amount.
@@ -1276,7 +1274,15 @@ impl Faker {
     /// # Returns
     ///
     /// A transaction amount rounded to 2 decimal places
-    pub fn transaction_amount(&mut self, min: f64, max: f64) -> f64 {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if min > max or if values are not finite.
+    pub fn transaction_amount(
+        &mut self,
+        min: f64,
+        max: f64,
+    ) -> Result<f64, providers::numbers::FloatRangeError> {
         providers::finance::generate_transaction_amount(&mut self.rng, min, max)
     }
 
@@ -2121,9 +2127,9 @@ impl Faker {
     }
 
     /// Generate a batch of random bank names.
-    #[pyo3(name = "bank_names", signature = (n, unique=false))]
-    fn py_bank_names(&mut self, n: usize, unique: bool) -> PyResult<Vec<String>> {
-        self.bank_names(n, unique)
+    #[pyo3(name = "bank_names")]
+    fn py_bank_names(&mut self, n: usize) -> PyResult<Vec<String>> {
+        self.bank_names(n)
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
@@ -2206,8 +2212,9 @@ impl Faker {
 
     /// Generate a single transaction amount.
     #[pyo3(name = "transaction_amount")]
-    fn py_transaction_amount(&mut self, min: f64, max: f64) -> f64 {
+    fn py_transaction_amount(&mut self, min: f64, max: f64) -> PyResult<f64> {
         self.transaction_amount(min, max)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     // === Password Generation ===

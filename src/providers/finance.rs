@@ -394,17 +394,24 @@ pub fn generate_uk_account_number(rng: &mut ForgeryRng) -> String {
 
 // === Financial Transaction Data ===
 
-/// Transaction types for realistic banking data.
-pub const TRANSACTION_TYPES: &[&str] = &[
+/// Debit transaction types (money going out).
+pub const DEBIT_TYPES: &[&str] = &[
     "Direct Debit",
     "Standing Order",
-    "Faster Payment",
     "Card Payment",
     "Cash Withdrawal",
     "Bank Transfer",
     "BACS Payment",
     "CHAPS Payment",
     "Cheque",
+    "Faster Payment",
+];
+
+/// Credit transaction types (money coming in).
+pub const CREDIT_TYPES: &[&str] = &[
+    "Faster Payment",
+    "Bank Transfer",
+    "BACS Payment",
     "Interest Payment",
     "Refund",
     "Salary",
@@ -514,14 +521,9 @@ pub fn generate_transactions(
 
         // Select transaction type based on credit/debit
         let transaction_type = if is_credit {
-            match rng.gen_range(0, 3) {
-                0 => "Faster Payment",
-                1 => "Bank Transfer",
-                2 => "Salary",
-                _ => "Refund",
-            }
+            rng.choose(CREDIT_TYPES)
         } else {
-            rng.choose(TRANSACTION_TYPES)
+            rng.choose(DEBIT_TYPES)
         }
         .to_string();
 
@@ -529,6 +531,8 @@ pub fn generate_transactions(
         let description = if is_credit {
             match transaction_type.as_str() {
                 "Salary" => "SALARY PAYMENT".to_string(),
+                "Dividend" => "DIVIDEND PAYMENT".to_string(),
+                "Interest Payment" => "INTEREST".to_string(),
                 "Refund" => format!("{} REFUND", rng.choose(MERCHANTS)),
                 _ => format!("TRANSFER FROM {}", generate_payee_name(rng)),
             }
@@ -590,24 +594,71 @@ fn generate_payee_name(rng: &mut ForgeryRng) -> String {
 /// * `rng` - Random number generator
 /// * `min` - Minimum amount (can be negative for debits)
 /// * `max` - Maximum amount
+///
+/// # Errors
+///
+/// Returns `FloatRangeError` if `min > max` or if either value is NaN or infinity.
 #[inline]
-pub fn generate_transaction_amount(rng: &mut ForgeryRng, min: f64, max: f64) -> f64 {
+pub fn generate_transaction_amount(
+    rng: &mut ForgeryRng,
+    min: f64,
+    max: f64,
+) -> Result<f64, crate::providers::numbers::FloatRangeError> {
+    use crate::providers::numbers::{FloatRangeError, FloatRangeErrorReason};
+
+    if !min.is_finite() || !max.is_finite() {
+        return Err(FloatRangeError {
+            min,
+            max,
+            reason: FloatRangeErrorReason::NonFiniteValue,
+        });
+    }
+    if min > max {
+        return Err(FloatRangeError {
+            min,
+            max,
+            reason: FloatRangeErrorReason::MinGreaterThanMax,
+        });
+    }
+
     let amount = min + (rng.gen_range(0, 1_000_000) as f64 / 1_000_000.0) * (max - min);
-    (amount * 100.0).round() / 100.0 // Round to 2 decimal places
+    Ok((amount * 100.0).round() / 100.0) // Round to 2 decimal places
 }
 
 /// Generate a batch of transaction amounts.
+///
+/// # Errors
+///
+/// Returns `FloatRangeError` if `min > max` or if either value is NaN or infinity.
 pub fn generate_transaction_amounts(
     rng: &mut ForgeryRng,
     n: usize,
     min: f64,
     max: f64,
-) -> Vec<f64> {
+) -> Result<Vec<f64>, crate::providers::numbers::FloatRangeError> {
+    use crate::providers::numbers::{FloatRangeError, FloatRangeErrorReason};
+
+    if !min.is_finite() || !max.is_finite() {
+        return Err(FloatRangeError {
+            min,
+            max,
+            reason: FloatRangeErrorReason::NonFiniteValue,
+        });
+    }
+    if min > max {
+        return Err(FloatRangeError {
+            min,
+            max,
+            reason: FloatRangeErrorReason::MinGreaterThanMax,
+        });
+    }
+
     let mut amounts = Vec::with_capacity(n);
     for _ in 0..n {
-        amounts.push(generate_transaction_amount(rng, min, max));
+        // Safe to unwrap since we already validated
+        amounts.push(generate_transaction_amount(rng, min, max).unwrap());
     }
-    amounts
+    Ok(amounts)
 }
 
 #[cfg(test)]
@@ -1127,7 +1178,7 @@ mod tests {
         let mut rng = ForgeryRng::new();
         rng.seed(42);
 
-        let amounts = generate_transaction_amounts(&mut rng, 100, -500.0, 500.0);
+        let amounts = generate_transaction_amounts(&mut rng, 100, -500.0, 500.0).unwrap();
 
         for amount in &amounts {
             // Check amount is in range
@@ -1209,7 +1260,7 @@ mod tests {
         let mut rng = ForgeryRng::new();
         rng.seed(42);
 
-        let amounts = generate_transaction_amounts(&mut rng, 100, 0.0, 1000.0);
+        let amounts = generate_transaction_amounts(&mut rng, 100, 0.0, 1000.0).unwrap();
         assert_eq!(amounts.len(), 100);
     }
 
@@ -1219,11 +1270,25 @@ mod tests {
         rng.seed(42);
 
         for _ in 0..100 {
-            let amount = generate_transaction_amount(&mut rng, 10.0, 100.0);
+            let amount = generate_transaction_amount(&mut rng, 10.0, 100.0).unwrap();
             assert!((10.0..=100.0).contains(&amount));
             // Check 2 decimal place precision
             assert_eq!(amount, (amount * 100.0).round() / 100.0);
         }
+    }
+
+    #[test]
+    fn test_transaction_amount_invalid_range() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        // min > max should fail
+        assert!(generate_transaction_amount(&mut rng, 100.0, 10.0).is_err());
+        assert!(generate_transaction_amounts(&mut rng, 10, 100.0, 10.0).is_err());
+
+        // Non-finite values should fail
+        assert!(generate_transaction_amount(&mut rng, f64::NAN, 10.0).is_err());
+        assert!(generate_transaction_amount(&mut rng, 10.0, f64::INFINITY).is_err());
     }
 
     #[test]
@@ -1245,6 +1310,36 @@ mod tests {
         assert_eq!(code.len(), 8);
         assert_eq!(&code[2..3], "-");
         assert_eq!(&code[5..6], "-");
+    }
+
+    #[test]
+    fn test_bank_name_lists_have_no_duplicates() {
+        use crate::data::get_locale_data;
+        use crate::locale::Locale;
+        use std::collections::HashSet;
+
+        let locales = [
+            Locale::EnUS,
+            Locale::EnGB,
+            Locale::DeDE,
+            Locale::FrFR,
+            Locale::EsES,
+            Locale::ItIT,
+            Locale::JaJP,
+        ];
+
+        for locale in locales {
+            let data = get_locale_data(locale);
+            if let Some(bank_names) = data.bank_names() {
+                let unique: HashSet<_> = bank_names.iter().collect();
+                assert_eq!(
+                    bank_names.len(),
+                    unique.len(),
+                    "Locale {:?} has duplicate bank names",
+                    locale
+                );
+            }
+        }
     }
 }
 
