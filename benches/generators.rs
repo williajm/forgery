@@ -22,7 +22,7 @@ fn bench_name_generation(c: &mut Criterion) {
                 let mut faker = Faker::new("en_US").unwrap();
                 faker.seed(42);
                 b.iter(|| {
-                    let names = faker.names(black_box(size)).unwrap();
+                    let names = faker.names(black_box(size), false).unwrap();
                     black_box(names)
                 });
             },
@@ -43,7 +43,7 @@ fn bench_email_generation(c: &mut Criterion) {
                 let mut faker = Faker::new("en_US").unwrap();
                 faker.seed(42);
                 b.iter(|| {
-                    let emails = faker.emails(black_box(size)).unwrap();
+                    let emails = faker.emails(black_box(size), false).unwrap();
                     black_box(emails)
                 });
             },

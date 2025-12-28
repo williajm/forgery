@@ -2,6 +2,7 @@
 //!
 //! Contains name lists and other data for de_DE locale.
 
+mod banks;
 mod bundeslaender;
 mod cities;
 mod color_names;
@@ -10,6 +11,7 @@ mod first_names;
 mod last_names;
 mod streets;
 
+pub use banks::BANK_NAMES;
 pub use bundeslaender::{BUNDESLAENDER, BUNDESLAENDER_ABBRS};
 pub use cities::CITIES;
 pub use color_names::COLOR_NAMES;
@@ -77,6 +79,7 @@ crate::impl_locale_data! {
     free_email_domains: FREE_EMAIL_DOMAINS,
     safe_email_domains: SAFE_EMAIL_DOMAINS,
     color_names: COLOR_NAMES,
+    bank_names: BANK_NAMES,
 }
 
 #[cfg(test)]

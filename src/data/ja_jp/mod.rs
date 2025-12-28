@@ -6,6 +6,7 @@
 //! For emails, romanized forms are used to ensure ASCII compatibility.
 //! Japanese names traditionally have family name first (e.g., 田中 太郎 = Tanaka Taro).
 
+mod banks;
 mod cities;
 mod color_names;
 mod companies;
@@ -14,6 +15,7 @@ mod last_names;
 mod prefectures;
 mod streets;
 
+pub use banks::BANK_NAMES;
 pub use cities::CITIES;
 pub use color_names::COLOR_NAMES;
 pub use companies::{
@@ -76,6 +78,7 @@ crate::impl_locale_data! {
     free_email_domains: FREE_EMAIL_DOMAINS,
     safe_email_domains: SAFE_EMAIL_DOMAINS,
     color_names: COLOR_NAMES,
+    bank_names: BANK_NAMES,
     romanized_first_names: FIRST_NAMES_ROMANIZED,
     romanized_last_names: LAST_NAMES_ROMANIZED,
 }

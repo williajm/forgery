@@ -94,6 +94,11 @@ pub trait LocaleData: Send + Sync {
     /// Color names in the locale's language.
     fn color_names(&self) -> Option<&'static [&'static str]>;
 
+    // === Finance ===
+
+    /// Bank names for the locale.
+    fn bank_names(&self) -> Option<&'static [&'static str]>;
+
     // === Romanization (for non-Latin scripts) ===
 
     /// Romanized first names for email generation.

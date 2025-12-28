@@ -3,6 +3,7 @@
 //! Contains name lists and other data for en_GB locale.
 //! Shares some data with en_US but with UK-specific variations.
 
+mod banks;
 mod cities;
 mod color_names;
 mod companies;
@@ -11,6 +12,7 @@ mod first_names;
 mod last_names;
 mod streets;
 
+pub use banks::BANK_NAMES;
 pub use cities::CITIES;
 pub use color_names::COLOR_NAMES;
 pub use companies::{
@@ -77,6 +79,7 @@ crate::impl_locale_data! {
     free_email_domains: FREE_EMAIL_DOMAINS,
     safe_email_domains: SAFE_EMAIL_DOMAINS,
     color_names: COLOR_NAMES,
+    bank_names: BANK_NAMES,
 }
 
 #[cfg(test)]

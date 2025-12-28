@@ -1,7 +1,10 @@
 //! Finance-related data generation provider.
 //!
-//! Generates credit card numbers (with valid Luhn checksum) and IBANs.
+//! Generates credit card numbers (with valid Luhn checksum), IBANs,
+//! BIC/SWIFT codes, bank account numbers, and bank names.
 
+use crate::data::get_locale_data;
+use crate::locale::Locale;
 use crate::rng::ForgeryRng;
 
 /// Credit card prefixes (IIN ranges) for major card networks.
@@ -213,6 +216,469 @@ pub fn generate_iban(rng: &mut ForgeryRng) -> String {
     format!("{}{}{}", country_code, check_digits, bban)
 }
 
+/// Generate a batch of BIC/SWIFT codes.
+///
+/// BIC format: AAAABBCCXXX
+/// - AAAA: Bank code (4 letters)
+/// - BB: Country code (2 letters)
+/// - CC: Location code (2 alphanumeric)
+/// - XXX: Branch code (optional, 3 alphanumeric)
+pub fn generate_bics(rng: &mut ForgeryRng, n: usize) -> Vec<String> {
+    let mut bics = Vec::with_capacity(n);
+    for _ in 0..n {
+        bics.push(generate_bic(rng));
+    }
+    bics
+}
+
+/// Generate a single BIC/SWIFT code.
+#[inline]
+pub fn generate_bic(rng: &mut ForgeryRng) -> String {
+    // 50% chance of including optional branch code (8 vs 11 characters)
+    let include_branch = rng.gen_range(0, 1) == 1;
+    let capacity = if include_branch { 11 } else { 8 };
+    let mut bic = String::with_capacity(capacity);
+
+    // Bank code (4 uppercase letters)
+    for _ in 0..4 {
+        let letter = rng.gen_range(0, 25) as u8;
+        bic.push((b'A' + letter) as char);
+    }
+
+    // Country code (use a random one from IBAN_COUNTRIES)
+    let (country_code, _) = rng.choose(IBAN_COUNTRIES);
+    bic.push_str(country_code);
+
+    // Location code (2 alphanumeric, but typically uppercase letters or digits)
+    for _ in 0..2 {
+        if rng.gen_range(0, 1) == 0 {
+            let letter = rng.gen_range(0, 25) as u8;
+            bic.push((b'A' + letter) as char);
+        } else {
+            let digit = rng.gen_range(0, 9) as u8;
+            bic.push((b'0' + digit) as char);
+        }
+    }
+
+    // Branch code (optional, 3 alphanumeric)
+    if include_branch {
+        for _ in 0..3 {
+            if rng.gen_range(0, 1) == 0 {
+                let letter = rng.gen_range(0, 25) as u8;
+                bic.push((b'A' + letter) as char);
+            } else {
+                let digit = rng.gen_range(0, 9) as u8;
+                bic.push((b'0' + digit) as char);
+            }
+        }
+    }
+
+    bic
+}
+
+/// Generate a batch of bank account numbers.
+///
+/// Generates numeric account numbers between 8 and 17 digits.
+pub fn generate_bank_accounts(rng: &mut ForgeryRng, n: usize) -> Vec<String> {
+    let mut accounts = Vec::with_capacity(n);
+    for _ in 0..n {
+        accounts.push(generate_bank_account(rng));
+    }
+    accounts
+}
+
+/// Generate a single bank account number.
+///
+/// Generates a numeric account number between 8 and 17 digits.
+#[inline]
+pub fn generate_bank_account(rng: &mut ForgeryRng) -> String {
+    // Account numbers are typically 8-17 digits
+    let length = rng.gen_range(8, 17);
+    let mut account = String::with_capacity(length);
+
+    for _ in 0..length {
+        let digit = rng.gen_range(0, 9) as u8;
+        account.push((b'0' + digit) as char);
+    }
+
+    account
+}
+
+/// Generate a batch of bank names using locale-specific data.
+pub fn generate_bank_names(rng: &mut ForgeryRng, locale: Locale, n: usize) -> Vec<String> {
+    let data = get_locale_data(locale);
+    let bank_names = data.bank_names().unwrap_or(&[]);
+
+    let mut names = Vec::with_capacity(n);
+    for _ in 0..n {
+        let name = if bank_names.is_empty() {
+            "Unknown Bank"
+        } else {
+            rng.choose(bank_names)
+        };
+        names.push(name.to_string());
+    }
+    names
+}
+
+/// Generate a single bank name using locale-specific data.
+#[inline]
+pub fn generate_bank_name(rng: &mut ForgeryRng, locale: Locale) -> String {
+    let data = get_locale_data(locale);
+    let bank_names = data.bank_names().unwrap_or(&[]);
+
+    if bank_names.is_empty() {
+        "Unknown Bank".to_string()
+    } else {
+        rng.choose(bank_names).to_string()
+    }
+}
+
+// === UK-Specific Banking ===
+
+/// Generate a batch of UK sort codes.
+///
+/// Sort codes are 6-digit codes in format XX-XX-XX that identify UK bank branches.
+pub fn generate_sort_codes(rng: &mut ForgeryRng, n: usize) -> Vec<String> {
+    let mut codes = Vec::with_capacity(n);
+    for _ in 0..n {
+        codes.push(generate_sort_code(rng));
+    }
+    codes
+}
+
+/// Generate a single UK sort code.
+///
+/// Format: XX-XX-XX (e.g., 12-34-56)
+#[inline]
+pub fn generate_sort_code(rng: &mut ForgeryRng) -> String {
+    let mut code = String::with_capacity(8);
+
+    // Generate 3 pairs of digits separated by dashes
+    for pair in 0..3 {
+        if pair > 0 {
+            code.push('-');
+        }
+        let d1 = rng.gen_range(0, 9) as u8;
+        let d2 = rng.gen_range(0, 9) as u8;
+        code.push((b'0' + d1) as char);
+        code.push((b'0' + d2) as char);
+    }
+
+    code
+}
+
+/// Generate a batch of UK bank account numbers.
+///
+/// UK account numbers are exactly 8 digits.
+pub fn generate_uk_account_numbers(rng: &mut ForgeryRng, n: usize) -> Vec<String> {
+    let mut accounts = Vec::with_capacity(n);
+    for _ in 0..n {
+        accounts.push(generate_uk_account_number(rng));
+    }
+    accounts
+}
+
+/// Generate a single UK bank account number.
+///
+/// UK account numbers are exactly 8 digits.
+#[inline]
+pub fn generate_uk_account_number(rng: &mut ForgeryRng) -> String {
+    let mut account = String::with_capacity(8);
+    for _ in 0..8 {
+        let digit = rng.gen_range(0, 9) as u8;
+        account.push((b'0' + digit) as char);
+    }
+    account
+}
+
+// === Financial Transaction Data ===
+
+/// Debit transaction types (money going out).
+pub const DEBIT_TYPES: &[&str] = &[
+    "Direct Debit",
+    "Standing Order",
+    "Card Payment",
+    "Cash Withdrawal",
+    "Bank Transfer",
+    "BACS Payment",
+    "CHAPS Payment",
+    "Cheque",
+    "Faster Payment",
+];
+
+/// Credit transaction types (money coming in).
+pub const CREDIT_TYPES: &[&str] = &[
+    "Faster Payment",
+    "Bank Transfer",
+    "BACS Payment",
+    "Interest Payment",
+    "Refund",
+    "Salary",
+    "Dividend",
+];
+
+/// Common merchant/payee names for transactions.
+pub const MERCHANTS: &[&str] = &[
+    "Tesco",
+    "Sainsbury's",
+    "Amazon UK",
+    "British Gas",
+    "EDF Energy",
+    "Sky UK",
+    "Netflix",
+    "Spotify",
+    "Apple",
+    "Google",
+    "TfL",
+    "National Rail",
+    "Costa Coffee",
+    "Greggs",
+    "McDonald's",
+    "BP",
+    "Shell",
+    "Vodafone",
+    "EE",
+    "Three",
+    "HMRC",
+    "Council Tax",
+    "Thames Water",
+    "Virgin Media",
+    "BT",
+];
+
+/// Probability threshold for credit transactions (20% credits, 80% debits).
+/// When a random value 0-9 is less than this threshold, the transaction is a credit.
+const CREDIT_PROBABILITY_THRESHOLD: usize = 2;
+
+/// A financial transaction record.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Transaction {
+    /// Unique transaction reference
+    pub reference: String,
+    /// Transaction date (YYYY-MM-DD)
+    pub date: String,
+    /// Transaction amount (negative for debits, positive for credits)
+    pub amount: f64,
+    /// Transaction type (e.g., "Card Payment", "Direct Debit")
+    pub transaction_type: String,
+    /// Merchant or payee description
+    pub description: String,
+    /// Running balance after transaction
+    pub balance: f64,
+}
+
+/// Generate a batch of financial transactions.
+///
+/// Generates realistic-looking transaction data with running balance.
+///
+/// # Arguments
+///
+/// * `rng` - Random number generator
+/// * `n` - Number of transactions to generate
+/// * `starting_balance` - Opening balance for the account
+/// * `start_date` - Start date for transactions (YYYY-MM-DD)
+/// * `end_date` - End date for transactions (YYYY-MM-DD)
+///
+/// # Errors
+///
+/// Returns a `DateRangeError` if the date range is invalid.
+pub fn generate_transactions(
+    rng: &mut ForgeryRng,
+    n: usize,
+    starting_balance: f64,
+    start_date: &str,
+    end_date: &str,
+) -> Result<Vec<Transaction>, crate::providers::datetime::DateRangeError> {
+    use crate::providers::datetime::generate_dates;
+
+    let mut transactions = Vec::with_capacity(n);
+    let mut balance = starting_balance;
+
+    // Generate sorted dates for transactions
+    let mut dates = generate_dates(rng, n, start_date, end_date)?;
+    dates.sort();
+
+    for date in dates {
+        let reference = generate_transaction_reference(rng);
+        let is_credit = rng.gen_range(0, 9) < CREDIT_PROBABILITY_THRESHOLD;
+        let amount = generate_transaction_amount_internal(rng, is_credit);
+        let transaction_type = select_transaction_type(rng, is_credit);
+        let description = generate_description(rng, is_credit, &transaction_type);
+
+        balance += amount;
+
+        transactions.push(Transaction {
+            reference,
+            date,
+            amount: round_to_cents(amount),
+            transaction_type,
+            description,
+            balance: round_to_cents(balance),
+        });
+    }
+
+    Ok(transactions)
+}
+
+/// Round a float to 2 decimal places.
+#[inline]
+fn round_to_cents(value: f64) -> f64 {
+    (value * 100.0).round() / 100.0
+}
+
+/// Generate a transaction amount based on credit/debit type.
+fn generate_transaction_amount_internal(rng: &mut ForgeryRng, is_credit: bool) -> f64 {
+    if is_credit {
+        let base = rng.gen_range(50, 5000) as f64;
+        base + (rng.gen_range(0, 99) as f64 / 100.0)
+    } else {
+        let base = rng.gen_range(1, 500) as f64;
+        -(base + (rng.gen_range(0, 99) as f64 / 100.0))
+    }
+}
+
+/// Select a transaction type based on credit/debit.
+fn select_transaction_type(rng: &mut ForgeryRng, is_credit: bool) -> String {
+    if is_credit {
+        rng.choose(CREDIT_TYPES)
+    } else {
+        rng.choose(DEBIT_TYPES)
+    }
+    .to_string()
+}
+
+/// Generate a transaction description based on type.
+fn generate_description(rng: &mut ForgeryRng, is_credit: bool, transaction_type: &str) -> String {
+    if is_credit {
+        generate_credit_description(rng, transaction_type)
+    } else {
+        generate_debit_description(rng, transaction_type)
+    }
+}
+
+/// Generate description for credit transactions.
+fn generate_credit_description(rng: &mut ForgeryRng, transaction_type: &str) -> String {
+    match transaction_type {
+        "Salary" => "SALARY PAYMENT".to_string(),
+        "Dividend" => "DIVIDEND PAYMENT".to_string(),
+        "Interest Payment" => "INTEREST".to_string(),
+        "Refund" => format!("{} REFUND", rng.choose(MERCHANTS)),
+        _ => format!("TRANSFER FROM {}", generate_payee_name(rng)),
+    }
+}
+
+/// Generate description for debit transactions.
+fn generate_debit_description(rng: &mut ForgeryRng, transaction_type: &str) -> String {
+    match transaction_type {
+        "Card Payment" | "Cash Withdrawal" => rng.choose(MERCHANTS).to_string(),
+        "Direct Debit" | "Standing Order" => format!("{} DD", rng.choose(MERCHANTS)),
+        _ => rng.choose(MERCHANTS).to_string(),
+    }
+}
+
+/// Reference characters: uppercase letters and digits.
+const REFERENCE_CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+/// Generate a transaction reference (8 alphanumeric characters).
+fn generate_transaction_reference(rng: &mut ForgeryRng) -> String {
+    let mut reference = String::with_capacity(8);
+
+    for _ in 0..8 {
+        let c = *rng.choose(REFERENCE_CHARS);
+        reference.push(c as char);
+    }
+
+    reference
+}
+
+/// Generate a random payee name for transfers.
+fn generate_payee_name(rng: &mut ForgeryRng) -> String {
+    const FIRST_NAMES: &[&str] = &[
+        "J", "M", "S", "A", "R", "T", "D", "C", "L", "E", "P", "K", "N", "B", "G",
+    ];
+    const LAST_NAMES: &[&str] = &[
+        "SMITH", "JONES", "TAYLOR", "BROWN", "WILLIAMS", "WILSON", "JOHNSON", "DAVIES", "ROBINSON",
+        "WRIGHT", "THOMPSON", "EVANS", "WALKER", "WHITE", "ROBERTS",
+    ];
+
+    format!("{} {}", rng.choose(FIRST_NAMES), rng.choose(LAST_NAMES))
+}
+
+/// Generate a single transaction amount.
+///
+/// # Arguments
+///
+/// * `rng` - Random number generator
+/// * `min` - Minimum amount (can be negative for debits)
+/// * `max` - Maximum amount
+///
+/// # Errors
+///
+/// Returns `FloatRangeError` if `min > max` or if either value is NaN or infinity.
+#[inline]
+pub fn generate_transaction_amount(
+    rng: &mut ForgeryRng,
+    min: f64,
+    max: f64,
+) -> Result<f64, crate::providers::numbers::FloatRangeError> {
+    use crate::providers::numbers::{FloatRangeError, FloatRangeErrorReason};
+
+    if !min.is_finite() || !max.is_finite() {
+        return Err(FloatRangeError {
+            min,
+            max,
+            reason: FloatRangeErrorReason::NonFiniteValue,
+        });
+    }
+    if min > max {
+        return Err(FloatRangeError {
+            min,
+            max,
+            reason: FloatRangeErrorReason::MinGreaterThanMax,
+        });
+    }
+
+    let amount = min + (rng.gen_range(0, 1_000_000) as f64 / 1_000_000.0) * (max - min);
+    Ok((amount * 100.0).round() / 100.0) // Round to 2 decimal places
+}
+
+/// Generate a batch of transaction amounts.
+///
+/// # Errors
+///
+/// Returns `FloatRangeError` if `min > max` or if either value is NaN or infinity.
+pub fn generate_transaction_amounts(
+    rng: &mut ForgeryRng,
+    n: usize,
+    min: f64,
+    max: f64,
+) -> Result<Vec<f64>, crate::providers::numbers::FloatRangeError> {
+    use crate::providers::numbers::{FloatRangeError, FloatRangeErrorReason};
+
+    if !min.is_finite() || !max.is_finite() {
+        return Err(FloatRangeError {
+            min,
+            max,
+            reason: FloatRangeErrorReason::NonFiniteValue,
+        });
+    }
+    if min > max {
+        return Err(FloatRangeError {
+            min,
+            max,
+            reason: FloatRangeErrorReason::MinGreaterThanMax,
+        });
+    }
+
+    let mut amounts = Vec::with_capacity(n);
+    for _ in 0..n {
+        // Safe to unwrap since we already validated
+        amounts.push(generate_transaction_amount(rng, min, max).unwrap());
+    }
+    Ok(amounts)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -388,12 +854,383 @@ mod tests {
         assert!(!validate_iban("🎉🎉89370400440532013000"));
     }
 
+    // BIC/SWIFT tests
+    #[test]
+    fn test_generate_bics_count() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let bics = generate_bics(&mut rng, 100);
+        assert_eq!(bics.len(), 100);
+    }
+
+    #[test]
+    fn test_bic_format() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let bics = generate_bics(&mut rng, 100);
+        for bic in &bics {
+            // BIC should be 8 or 11 characters
+            let len = bic.len();
+            assert!(
+                len == 8 || len == 11,
+                "BIC should be 8 or 11 characters: {} (len {})",
+                bic,
+                len
+            );
+
+            // First 4 characters should be uppercase letters (bank code)
+            assert!(
+                bic.chars().take(4).all(|c| c.is_ascii_uppercase()),
+                "BIC bank code should be uppercase letters: {}",
+                bic
+            );
+
+            // Next 2 characters should be uppercase letters (country code)
+            assert!(
+                bic.chars().skip(4).take(2).all(|c| c.is_ascii_uppercase()),
+                "BIC country code should be uppercase letters: {}",
+                bic
+            );
+
+            // Location code (2 chars) should be alphanumeric
+            assert!(
+                bic.chars()
+                    .skip(6)
+                    .take(2)
+                    .all(|c| c.is_ascii_alphanumeric()),
+                "BIC location code should be alphanumeric: {}",
+                bic
+            );
+
+            // Branch code (if present, 3 chars) should be alphanumeric
+            if len == 11 {
+                assert!(
+                    bic.chars().skip(8).all(|c| c.is_ascii_alphanumeric()),
+                    "BIC branch code should be alphanumeric: {}",
+                    bic
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_bic_deterministic() {
+        let mut rng1 = ForgeryRng::new();
+        let mut rng2 = ForgeryRng::new();
+
+        rng1.seed(12345);
+        rng2.seed(12345);
+
+        let b1 = generate_bics(&mut rng1, 50);
+        let b2 = generate_bics(&mut rng2, 50);
+
+        assert_eq!(b1, b2);
+    }
+
+    // Bank account tests
+    #[test]
+    fn test_generate_bank_accounts_count() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let accounts = generate_bank_accounts(&mut rng, 100);
+        assert_eq!(accounts.len(), 100);
+    }
+
+    #[test]
+    fn test_bank_account_format() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let accounts = generate_bank_accounts(&mut rng, 100);
+        for account in &accounts {
+            // Account should be 8-17 digits
+            let len = account.len();
+            assert!(
+                (8..=17).contains(&len),
+                "Bank account should be 8-17 digits: {} (len {})",
+                account,
+                len
+            );
+
+            // Should be all digits
+            assert!(
+                account.chars().all(|c| c.is_ascii_digit()),
+                "Bank account should only contain digits: {}",
+                account
+            );
+        }
+    }
+
+    #[test]
+    fn test_bank_account_deterministic() {
+        let mut rng1 = ForgeryRng::new();
+        let mut rng2 = ForgeryRng::new();
+
+        rng1.seed(12345);
+        rng2.seed(12345);
+
+        let a1 = generate_bank_accounts(&mut rng1, 50);
+        let a2 = generate_bank_accounts(&mut rng2, 50);
+
+        assert_eq!(a1, a2);
+    }
+
+    // UK Sort Code tests
+    #[test]
+    fn test_generate_sort_codes_count() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let codes = generate_sort_codes(&mut rng, 100);
+        assert_eq!(codes.len(), 100);
+    }
+
+    #[test]
+    fn test_sort_code_format() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let codes = generate_sort_codes(&mut rng, 100);
+        for code in &codes {
+            // Should be XX-XX-XX format (8 chars)
+            assert_eq!(code.len(), 8, "Sort code should be 8 chars: {}", code);
+
+            // Check format
+            let chars: Vec<char> = code.chars().collect();
+            assert!(
+                chars[0].is_ascii_digit(),
+                "Expected digit at pos 0: {}",
+                code
+            );
+            assert!(
+                chars[1].is_ascii_digit(),
+                "Expected digit at pos 1: {}",
+                code
+            );
+            assert_eq!(chars[2], '-', "Expected dash at pos 2: {}", code);
+            assert!(
+                chars[3].is_ascii_digit(),
+                "Expected digit at pos 3: {}",
+                code
+            );
+            assert!(
+                chars[4].is_ascii_digit(),
+                "Expected digit at pos 4: {}",
+                code
+            );
+            assert_eq!(chars[5], '-', "Expected dash at pos 5: {}", code);
+            assert!(
+                chars[6].is_ascii_digit(),
+                "Expected digit at pos 6: {}",
+                code
+            );
+            assert!(
+                chars[7].is_ascii_digit(),
+                "Expected digit at pos 7: {}",
+                code
+            );
+        }
+    }
+
+    #[test]
+    fn test_sort_code_deterministic() {
+        let mut rng1 = ForgeryRng::new();
+        let mut rng2 = ForgeryRng::new();
+
+        rng1.seed(12345);
+        rng2.seed(12345);
+
+        let s1 = generate_sort_codes(&mut rng1, 50);
+        let s2 = generate_sort_codes(&mut rng2, 50);
+
+        assert_eq!(s1, s2);
+    }
+
+    // UK Account Number tests
+    #[test]
+    fn test_generate_uk_account_numbers_count() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let accounts = generate_uk_account_numbers(&mut rng, 100);
+        assert_eq!(accounts.len(), 100);
+    }
+
+    #[test]
+    fn test_uk_account_number_format() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let accounts = generate_uk_account_numbers(&mut rng, 100);
+        for account in &accounts {
+            // UK account should be exactly 8 digits
+            assert_eq!(
+                account.len(),
+                8,
+                "UK account should be exactly 8 digits: {} (len {})",
+                account,
+                account.len()
+            );
+
+            // Should be all digits
+            assert!(
+                account.chars().all(|c| c.is_ascii_digit()),
+                "UK account should only contain digits: {}",
+                account
+            );
+        }
+    }
+
+    #[test]
+    fn test_uk_account_number_deterministic() {
+        let mut rng1 = ForgeryRng::new();
+        let mut rng2 = ForgeryRng::new();
+
+        rng1.seed(12345);
+        rng2.seed(12345);
+
+        let a1 = generate_uk_account_numbers(&mut rng1, 50);
+        let a2 = generate_uk_account_numbers(&mut rng2, 50);
+
+        assert_eq!(a1, a2);
+    }
+
+    // Transaction tests
+    #[test]
+    fn test_generate_transactions_count() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let transactions =
+            generate_transactions(&mut rng, 100, 1000.0, "2024-01-01", "2024-12-31").unwrap();
+        assert_eq!(transactions.len(), 100);
+    }
+
+    #[test]
+    fn test_transaction_data() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let transactions =
+            generate_transactions(&mut rng, 10, 5000.0, "2024-01-01", "2024-03-31").unwrap();
+
+        for tx in &transactions {
+            // Reference should be 8 alphanumeric chars
+            assert_eq!(tx.reference.len(), 8, "Reference should be 8 chars");
+            assert!(
+                tx.reference.chars().all(|c| c.is_ascii_alphanumeric()),
+                "Reference should be alphanumeric: {}",
+                tx.reference
+            );
+
+            // Date should be valid format
+            assert_eq!(tx.date.len(), 10, "Date should be YYYY-MM-DD");
+            assert!(
+                tx.date.starts_with("2024-"),
+                "Date should be in 2024: {}",
+                tx.date
+            );
+
+            // Transaction type should not be empty
+            assert!(
+                !tx.transaction_type.is_empty(),
+                "Transaction type should not be empty"
+            );
+
+            // Description should not be empty
+            assert!(
+                !tx.description.is_empty(),
+                "Description should not be empty"
+            );
+        }
+    }
+
+    #[test]
+    fn test_transaction_running_balance() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let starting_balance = 1000.0;
+        let transactions =
+            generate_transactions(&mut rng, 50, starting_balance, "2024-01-01", "2024-06-30")
+                .unwrap();
+
+        // Verify running balance is calculated correctly
+        let mut expected_balance = starting_balance;
+        for tx in &transactions {
+            expected_balance += tx.amount;
+            // Allow for small floating point differences
+            assert!(
+                (tx.balance - (expected_balance * 100.0).round() / 100.0).abs() < 0.01,
+                "Balance mismatch: expected {}, got {}",
+                expected_balance,
+                tx.balance
+            );
+        }
+    }
+
+    #[test]
+    fn test_transaction_dates_sorted() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let transactions =
+            generate_transactions(&mut rng, 50, 1000.0, "2024-01-01", "2024-12-31").unwrap();
+
+        // Dates should be sorted
+        for i in 1..transactions.len() {
+            assert!(
+                transactions[i].date >= transactions[i - 1].date,
+                "Dates should be sorted: {} comes after {}",
+                transactions[i].date,
+                transactions[i - 1].date
+            );
+        }
+    }
+
+    #[test]
+    fn test_transaction_amount_format() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let amounts = generate_transaction_amounts(&mut rng, 100, -500.0, 500.0).unwrap();
+
+        for amount in &amounts {
+            // Check amount is in range
+            assert!(
+                *amount >= -500.0 && *amount <= 500.0,
+                "Amount should be in range: {}",
+                amount
+            );
+
+            // Check amount is rounded to 2 decimal places
+            let rounded = (*amount * 100.0).round() / 100.0;
+            assert!(
+                (*amount - rounded).abs() < 0.001,
+                "Amount should be rounded to 2 decimals: {}",
+                amount
+            );
+        }
+    }
+
     #[test]
     fn test_empty_batches() {
         let mut rng = ForgeryRng::new();
 
         assert!(generate_credit_cards(&mut rng, 0).is_empty());
         assert!(generate_ibans(&mut rng, 0).is_empty());
+        assert!(generate_bics(&mut rng, 0).is_empty());
+        assert!(generate_bank_accounts(&mut rng, 0).is_empty());
+        assert!(generate_sort_codes(&mut rng, 0).is_empty());
+        assert!(generate_uk_account_numbers(&mut rng, 0).is_empty());
+        assert!(
+            generate_transactions(&mut rng, 0, 1000.0, "2024-01-01", "2024-12-31")
+                .unwrap()
+                .is_empty()
+        );
     }
 
     #[test]
@@ -408,6 +1245,119 @@ mod tests {
         let c2 = generate_credit_cards(&mut rng2, 100);
 
         assert_ne!(c1, c2, "Different seeds should produce different cards");
+    }
+
+    #[test]
+    fn test_all_reference_chars_reachable() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        // Generate enough transactions to statistically hit all 36 chars (26 letters + 10 digits)
+        let transactions =
+            generate_transactions(&mut rng, 500, 1000.0, "2024-01-01", "2024-12-31").unwrap();
+        let mut seen = std::collections::HashSet::new();
+
+        for tx in &transactions {
+            for c in tx.reference.chars() {
+                seen.insert(c);
+            }
+        }
+
+        // Should have seen all 36 characters (26 letters + 10 digits)
+        assert_eq!(
+            seen.len(),
+            36,
+            "Should see all 36 reference chars, but only saw {} chars: {:?}",
+            seen.len(),
+            seen
+        );
+    }
+
+    #[test]
+    fn test_transaction_amounts_count() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let amounts = generate_transaction_amounts(&mut rng, 100, 0.0, 1000.0).unwrap();
+        assert_eq!(amounts.len(), 100);
+    }
+
+    #[test]
+    fn test_single_transaction_amount() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        for _ in 0..100 {
+            let amount = generate_transaction_amount(&mut rng, 10.0, 100.0).unwrap();
+            assert!((10.0..=100.0).contains(&amount));
+            // Check 2 decimal place precision
+            assert_eq!(amount, (amount * 100.0).round() / 100.0);
+        }
+    }
+
+    #[test]
+    fn test_transaction_amount_invalid_range() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        // min > max should fail
+        assert!(generate_transaction_amount(&mut rng, 100.0, 10.0).is_err());
+        assert!(generate_transaction_amounts(&mut rng, 10, 100.0, 10.0).is_err());
+
+        // Non-finite values should fail
+        assert!(generate_transaction_amount(&mut rng, f64::NAN, 10.0).is_err());
+        assert!(generate_transaction_amount(&mut rng, 10.0, f64::INFINITY).is_err());
+    }
+
+    #[test]
+    fn test_single_uk_account_number() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let account = generate_uk_account_number(&mut rng);
+        assert_eq!(account.len(), 8);
+        assert!(account.chars().all(|c| c.is_ascii_digit()));
+    }
+
+    #[test]
+    fn test_single_sort_code() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let code = generate_sort_code(&mut rng);
+        assert_eq!(code.len(), 8);
+        assert_eq!(&code[2..3], "-");
+        assert_eq!(&code[5..6], "-");
+    }
+
+    #[test]
+    fn test_bank_name_lists_have_no_duplicates() {
+        use crate::data::get_locale_data;
+        use crate::locale::Locale;
+        use std::collections::HashSet;
+
+        let locales = [
+            Locale::EnUS,
+            Locale::EnGB,
+            Locale::DeDE,
+            Locale::FrFR,
+            Locale::EsES,
+            Locale::ItIT,
+            Locale::JaJP,
+        ];
+
+        for locale in locales {
+            let data = get_locale_data(locale);
+            if let Some(bank_names) = data.bank_names() {
+                let unique: HashSet<_> = bank_names.iter().collect();
+                assert_eq!(
+                    bank_names.len(),
+                    unique.len(),
+                    "Locale {:?} has duplicate bank names",
+                    locale
+                );
+            }
+        }
     }
 }
 

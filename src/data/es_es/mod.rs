@@ -2,6 +2,7 @@
 //!
 //! Contains name lists and other data for es_ES locale.
 
+mod banks;
 mod cities;
 mod color_names;
 mod companies;
@@ -10,6 +11,7 @@ mod last_names;
 mod provinces;
 mod streets;
 
+pub use banks::BANK_NAMES;
 pub use cities::CITIES;
 pub use color_names::COLOR_NAMES;
 pub use companies::{
@@ -72,6 +74,7 @@ crate::impl_locale_data! {
     free_email_domains: FREE_EMAIL_DOMAINS,
     safe_email_domains: SAFE_EMAIL_DOMAINS,
     color_names: COLOR_NAMES,
+    bank_names: BANK_NAMES,
     romanized_first_names: ROMANIZED_FIRST_NAMES,
 }
 
