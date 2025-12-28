@@ -500,63 +500,81 @@ pub fn generate_transactions(
     dates.sort();
 
     for date in dates {
-        // Generate transaction reference (8 alphanumeric chars)
         let reference = generate_transaction_reference(rng);
-
-        // Decide if this is a credit or debit
         let is_credit = rng.gen_range(0, 9) < CREDIT_PROBABILITY_THRESHOLD;
-
-        // Generate amount
-        let amount = if is_credit {
-            // Credits: typically larger amounts (salary, refunds, transfers)
-            let base = rng.gen_range(50, 5000) as f64;
-            base + (rng.gen_range(0, 99) as f64 / 100.0)
-        } else {
-            // Debits: more varied, typically smaller
-            let base = rng.gen_range(1, 500) as f64;
-            -(base + (rng.gen_range(0, 99) as f64 / 100.0))
-        };
+        let amount = generate_transaction_amount_internal(rng, is_credit);
+        let transaction_type = select_transaction_type(rng, is_credit);
+        let description = generate_description(rng, is_credit, &transaction_type);
 
         balance += amount;
-
-        // Select transaction type based on credit/debit
-        let transaction_type = if is_credit {
-            rng.choose(CREDIT_TYPES)
-        } else {
-            rng.choose(DEBIT_TYPES)
-        }
-        .to_string();
-
-        // Generate description
-        let description = if is_credit {
-            match transaction_type.as_str() {
-                "Salary" => "SALARY PAYMENT".to_string(),
-                "Dividend" => "DIVIDEND PAYMENT".to_string(),
-                "Interest Payment" => "INTEREST".to_string(),
-                "Refund" => format!("{} REFUND", rng.choose(MERCHANTS)),
-                _ => format!("TRANSFER FROM {}", generate_payee_name(rng)),
-            }
-        } else {
-            match transaction_type.as_str() {
-                "Card Payment" | "Cash Withdrawal" => rng.choose(MERCHANTS).to_string(),
-                "Direct Debit" | "Standing Order" => {
-                    format!("{} DD", rng.choose(MERCHANTS))
-                }
-                _ => rng.choose(MERCHANTS).to_string(),
-            }
-        };
 
         transactions.push(Transaction {
             reference,
             date,
-            amount: (amount * 100.0).round() / 100.0, // Round to 2 decimal places
+            amount: round_to_cents(amount),
             transaction_type,
             description,
-            balance: (balance * 100.0).round() / 100.0,
+            balance: round_to_cents(balance),
         });
     }
 
     Ok(transactions)
+}
+
+/// Round a float to 2 decimal places.
+#[inline]
+fn round_to_cents(value: f64) -> f64 {
+    (value * 100.0).round() / 100.0
+}
+
+/// Generate a transaction amount based on credit/debit type.
+fn generate_transaction_amount_internal(rng: &mut ForgeryRng, is_credit: bool) -> f64 {
+    if is_credit {
+        let base = rng.gen_range(50, 5000) as f64;
+        base + (rng.gen_range(0, 99) as f64 / 100.0)
+    } else {
+        let base = rng.gen_range(1, 500) as f64;
+        -(base + (rng.gen_range(0, 99) as f64 / 100.0))
+    }
+}
+
+/// Select a transaction type based on credit/debit.
+fn select_transaction_type(rng: &mut ForgeryRng, is_credit: bool) -> String {
+    if is_credit {
+        rng.choose(CREDIT_TYPES)
+    } else {
+        rng.choose(DEBIT_TYPES)
+    }
+    .to_string()
+}
+
+/// Generate a transaction description based on type.
+fn generate_description(rng: &mut ForgeryRng, is_credit: bool, transaction_type: &str) -> String {
+    if is_credit {
+        generate_credit_description(rng, transaction_type)
+    } else {
+        generate_debit_description(rng, transaction_type)
+    }
+}
+
+/// Generate description for credit transactions.
+fn generate_credit_description(rng: &mut ForgeryRng, transaction_type: &str) -> String {
+    match transaction_type {
+        "Salary" => "SALARY PAYMENT".to_string(),
+        "Dividend" => "DIVIDEND PAYMENT".to_string(),
+        "Interest Payment" => "INTEREST".to_string(),
+        "Refund" => format!("{} REFUND", rng.choose(MERCHANTS)),
+        _ => format!("TRANSFER FROM {}", generate_payee_name(rng)),
+    }
+}
+
+/// Generate description for debit transactions.
+fn generate_debit_description(rng: &mut ForgeryRng, transaction_type: &str) -> String {
+    match transaction_type {
+        "Card Payment" | "Cash Withdrawal" => rng.choose(MERCHANTS).to_string(),
+        "Direct Debit" | "Standing Order" => format!("{} DD", rng.choose(MERCHANTS)),
+        _ => rng.choose(MERCHANTS).to_string(),
+    }
 }
 
 /// Reference characters: uppercase letters and digits.
