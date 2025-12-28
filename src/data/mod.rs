@@ -2,6 +2,8 @@
 //!
 //! Contains locale-specific data used by providers.
 
+#[macro_use]
+pub mod macros;
 pub mod formats;
 pub mod traits;
 

@@ -28,7 +28,6 @@ pub use streets::{STREET_NAMES, STREET_SUFFIXES};
 use super::en_us::{COUNTRIES, FREE_EMAIL_DOMAINS, LOREM_WORDS, SAFE_EMAIL_DOMAINS, TLDS};
 
 use super::formats::{AddressFormat, PhoneFormat, PostalCodeFormat};
-use super::traits::LocaleData;
 
 /// Phone format patterns for Japan.
 const JP_PHONE_PATTERNS: &[&str] = &["+81 ##-####-####", "0##-####-####", "+81 #-####-####"];
@@ -54,103 +53,37 @@ pub struct JaJPData;
 /// Static instance of the Japanese locale data.
 pub static JA_JP_DATA: JaJPData = JaJPData;
 
-impl LocaleData for JaJPData {
-    fn first_names(&self) -> Option<&'static [&'static str]> {
-        Some(FIRST_NAMES)
-    }
-
-    fn last_names(&self) -> Option<&'static [&'static str]> {
-        Some(LAST_NAMES)
-    }
-
-    fn romanized_first_names(&self) -> Option<&'static [&'static str]> {
-        Some(FIRST_NAMES_ROMANIZED)
-    }
-
-    fn romanized_last_names(&self) -> Option<&'static [&'static str]> {
-        Some(LAST_NAMES_ROMANIZED)
-    }
-
-    fn cities(&self) -> Option<&'static [&'static str]> {
-        Some(CITIES)
-    }
-
-    fn regions(&self) -> Option<&'static [&'static str]> {
-        Some(PREFECTURES)
-    }
-
-    fn region_abbrs(&self) -> Option<&'static [&'static str]> {
-        Some(PREFECTURE_ABBRS)
-    }
-
-    fn street_names(&self) -> Option<&'static [&'static str]> {
-        Some(STREET_NAMES)
-    }
-
-    fn street_suffixes(&self) -> Option<&'static [&'static str]> {
-        Some(STREET_SUFFIXES)
-    }
-
-    fn countries(&self) -> Option<&'static [&'static str]> {
-        Some(COUNTRIES)
-    }
-
-    fn postal_code_format(&self) -> Option<PostalCodeFormat> {
-        Some(JP_POSTAL_FORMAT)
-    }
-
-    fn address_format(&self) -> Option<AddressFormat> {
-        Some(JP_ADDRESS_FORMAT)
-    }
-
-    fn phone_format(&self) -> Option<PhoneFormat> {
-        Some(JP_PHONE_FORMAT)
-    }
-
-    fn company_prefixes(&self) -> Option<&'static [&'static str]> {
-        Some(COMPANY_PREFIXES)
-    }
-
-    fn company_suffixes(&self) -> Option<&'static [&'static str]> {
-        Some(COMPANY_SUFFIXES)
-    }
-
-    fn job_titles(&self) -> Option<&'static [&'static str]> {
-        Some(JOB_TITLES)
-    }
-
-    fn catch_phrase_adjectives(&self) -> Option<&'static [&'static str]> {
-        Some(CATCH_PHRASE_ADJECTIVES)
-    }
-
-    fn catch_phrase_nouns(&self) -> Option<&'static [&'static str]> {
-        Some(CATCH_PHRASE_NOUNS)
-    }
-
-    fn text_words(&self) -> Option<&'static [&'static str]> {
-        Some(LOREM_WORDS)
-    }
-
-    fn tlds(&self) -> Option<&'static [&'static str]> {
-        Some(TLDS)
-    }
-
-    fn free_email_domains(&self) -> Option<&'static [&'static str]> {
-        Some(FREE_EMAIL_DOMAINS)
-    }
-
-    fn safe_email_domains(&self) -> Option<&'static [&'static str]> {
-        Some(SAFE_EMAIL_DOMAINS)
-    }
-
-    fn color_names(&self) -> Option<&'static [&'static str]> {
-        Some(COLOR_NAMES)
-    }
+crate::impl_locale_data! {
+    JaJPData,
+    first_names: FIRST_NAMES,
+    last_names: LAST_NAMES,
+    cities: CITIES,
+    regions: PREFECTURES,
+    region_abbrs: PREFECTURE_ABBRS,
+    street_names: STREET_NAMES,
+    street_suffixes: STREET_SUFFIXES,
+    countries: COUNTRIES,
+    postal_format: JP_POSTAL_FORMAT,
+    address_format: JP_ADDRESS_FORMAT,
+    phone_format: JP_PHONE_FORMAT,
+    company_prefixes: COMPANY_PREFIXES,
+    company_suffixes: COMPANY_SUFFIXES,
+    job_titles: JOB_TITLES,
+    catch_phrase_adjectives: CATCH_PHRASE_ADJECTIVES,
+    catch_phrase_nouns: CATCH_PHRASE_NOUNS,
+    text_words: LOREM_WORDS,
+    tlds: TLDS,
+    free_email_domains: FREE_EMAIL_DOMAINS,
+    safe_email_domains: SAFE_EMAIL_DOMAINS,
+    color_names: COLOR_NAMES,
+    romanized_first_names: FIRST_NAMES_ROMANIZED,
+    romanized_last_names: LAST_NAMES_ROMANIZED,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::data::traits::LocaleData;
 
     #[test]
     fn test_ja_jp_data_implements_locale_data() {
