@@ -1219,13 +1219,17 @@ impl Faker {
     /// A list of transactions, each containing reference, date, amount,
     /// transaction_type, description, and running balance. Transactions
     /// are sorted chronologically.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if batch size exceeds the limit or if the date range is invalid.
     pub fn transactions(
         &mut self,
         n: usize,
         starting_balance: f64,
         start_date: &str,
         end_date: &str,
-    ) -> Result<Vec<providers::finance::Transaction>, BatchSizeError> {
+    ) -> Result<Vec<providers::finance::Transaction>, error::ForgeryError> {
         validate_batch_size(n)?;
         Ok(providers::finance::generate_transactions(
             &mut self.rng,
@@ -1233,7 +1237,7 @@ impl Faker {
             starting_balance,
             start_date,
             end_date,
-        ))
+        )?)
     }
 
     /// Generate a batch of transaction amounts.

@@ -116,8 +116,8 @@ fn build_char_pool(
 fn generate_password_from_pool(rng: &mut ForgeryRng, length: usize, pool: &[u8]) -> String {
     let mut password = String::with_capacity(length);
     for _ in 0..length {
-        let idx = rng.gen_range(0, pool.len() - 1);
-        password.push(pool[idx] as char);
+        let c = *rng.choose(pool);
+        password.push(c as char);
     }
     password
 }
@@ -356,6 +356,101 @@ mod tests {
         let err = PasswordError::NoCharacterSetsEnabled;
         let msg = format!("{}", err);
         assert!(msg.contains("character set"));
+    }
+
+    #[test]
+    fn test_all_lowercase_chars_reachable() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        // Generate enough passwords to statistically hit all 26 lowercase chars
+        let passwords = generate_passwords(&mut rng, 1000, 50, false, true, false, false).unwrap();
+        let mut seen = std::collections::HashSet::new();
+
+        for password in &passwords {
+            for c in password.chars() {
+                seen.insert(c);
+            }
+        }
+
+        // Should have seen all 26 lowercase letters
+        assert_eq!(
+            seen.len(),
+            26,
+            "Should see all 26 lowercase letters, but only saw {} chars: {:?}",
+            seen.len(),
+            seen
+        );
+    }
+
+    #[test]
+    fn test_all_uppercase_chars_reachable() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let passwords = generate_passwords(&mut rng, 1000, 50, true, false, false, false).unwrap();
+        let mut seen = std::collections::HashSet::new();
+
+        for password in &passwords {
+            for c in password.chars() {
+                seen.insert(c);
+            }
+        }
+
+        assert_eq!(
+            seen.len(),
+            26,
+            "Should see all 26 uppercase letters, but only saw {} chars: {:?}",
+            seen.len(),
+            seen
+        );
+    }
+
+    #[test]
+    fn test_all_digit_chars_reachable() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let passwords = generate_passwords(&mut rng, 1000, 50, false, false, true, false).unwrap();
+        let mut seen = std::collections::HashSet::new();
+
+        for password in &passwords {
+            for c in password.chars() {
+                seen.insert(c);
+            }
+        }
+
+        assert_eq!(
+            seen.len(),
+            10,
+            "Should see all 10 digits, but only saw {} chars: {:?}",
+            seen.len(),
+            seen
+        );
+    }
+
+    #[test]
+    fn test_all_symbol_chars_reachable() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let passwords = generate_passwords(&mut rng, 1000, 50, false, false, false, true).unwrap();
+        let mut seen = std::collections::HashSet::new();
+
+        for password in &passwords {
+            for c in password.chars() {
+                seen.insert(c);
+            }
+        }
+
+        assert_eq!(
+            seen.len(),
+            SYMBOLS.len(),
+            "Should see all {} symbols, but only saw {} chars: {:?}",
+            SYMBOLS.len(),
+            seen.len(),
+            seen
+        );
     }
 }
 

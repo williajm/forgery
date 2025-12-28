@@ -354,25 +354,16 @@ pub fn generate_sort_codes(rng: &mut ForgeryRng, n: usize) -> Vec<String> {
 pub fn generate_sort_code(rng: &mut ForgeryRng) -> String {
     let mut code = String::with_capacity(8);
 
-    // First pair (00-99)
-    let d1 = rng.gen_range(0, 9) as u8;
-    let d2 = rng.gen_range(0, 9) as u8;
-    code.push((b'0' + d1) as char);
-    code.push((b'0' + d2) as char);
-    code.push('-');
-
-    // Second pair (00-99)
-    let d3 = rng.gen_range(0, 9) as u8;
-    let d4 = rng.gen_range(0, 9) as u8;
-    code.push((b'0' + d3) as char);
-    code.push((b'0' + d4) as char);
-    code.push('-');
-
-    // Third pair (00-99)
-    let d5 = rng.gen_range(0, 9) as u8;
-    let d6 = rng.gen_range(0, 9) as u8;
-    code.push((b'0' + d5) as char);
-    code.push((b'0' + d6) as char);
+    // Generate 3 pairs of digits separated by dashes
+    for pair in 0..3 {
+        if pair > 0 {
+            code.push('-');
+        }
+        let d1 = rng.gen_range(0, 9) as u8;
+        let d2 = rng.gen_range(0, 9) as u8;
+        code.push((b'0' + d1) as char);
+        code.push((b'0' + d2) as char);
+    }
 
     code
 }
@@ -477,21 +468,24 @@ pub struct Transaction {
 /// * `starting_balance` - Opening balance for the account
 /// * `start_date` - Start date for transactions (YYYY-MM-DD)
 /// * `end_date` - End date for transactions (YYYY-MM-DD)
+///
+/// # Errors
+///
+/// Returns a `DateRangeError` if the date range is invalid.
 pub fn generate_transactions(
     rng: &mut ForgeryRng,
     n: usize,
     starting_balance: f64,
     start_date: &str,
     end_date: &str,
-) -> Vec<Transaction> {
+) -> Result<Vec<Transaction>, crate::providers::datetime::DateRangeError> {
     use crate::providers::datetime::generate_dates;
 
     let mut transactions = Vec::with_capacity(n);
     let mut balance = starting_balance;
 
     // Generate sorted dates for transactions
-    let mut dates = generate_dates(rng, n, start_date, end_date)
-        .expect("Invalid date range for transactions");
+    let mut dates = generate_dates(rng, n, start_date, end_date)?;
     dates.sort();
 
     for date in dates {
@@ -554,17 +548,19 @@ pub fn generate_transactions(
         });
     }
 
-    transactions
+    Ok(transactions)
 }
+
+/// Reference characters: uppercase letters and digits.
+const REFERENCE_CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
 /// Generate a transaction reference (8 alphanumeric characters).
 fn generate_transaction_reference(rng: &mut ForgeryRng) -> String {
     let mut reference = String::with_capacity(8);
-    const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
     for _ in 0..8 {
-        let idx = rng.gen_range(0, (CHARS.len() - 1) as i64) as usize;
-        reference.push(CHARS[idx] as char);
+        let c = *rng.choose(REFERENCE_CHARS);
+        reference.push(c as char);
     }
 
     reference
@@ -931,14 +927,38 @@ mod tests {
 
             // Check format
             let chars: Vec<char> = code.chars().collect();
-            assert!(chars[0].is_ascii_digit(), "Expected digit at pos 0: {}", code);
-            assert!(chars[1].is_ascii_digit(), "Expected digit at pos 1: {}", code);
+            assert!(
+                chars[0].is_ascii_digit(),
+                "Expected digit at pos 0: {}",
+                code
+            );
+            assert!(
+                chars[1].is_ascii_digit(),
+                "Expected digit at pos 1: {}",
+                code
+            );
             assert_eq!(chars[2], '-', "Expected dash at pos 2: {}", code);
-            assert!(chars[3].is_ascii_digit(), "Expected digit at pos 3: {}", code);
-            assert!(chars[4].is_ascii_digit(), "Expected digit at pos 4: {}", code);
+            assert!(
+                chars[3].is_ascii_digit(),
+                "Expected digit at pos 3: {}",
+                code
+            );
+            assert!(
+                chars[4].is_ascii_digit(),
+                "Expected digit at pos 4: {}",
+                code
+            );
             assert_eq!(chars[5], '-', "Expected dash at pos 5: {}", code);
-            assert!(chars[6].is_ascii_digit(), "Expected digit at pos 6: {}", code);
-            assert!(chars[7].is_ascii_digit(), "Expected digit at pos 7: {}", code);
+            assert!(
+                chars[6].is_ascii_digit(),
+                "Expected digit at pos 6: {}",
+                code
+            );
+            assert!(
+                chars[7].is_ascii_digit(),
+                "Expected digit at pos 7: {}",
+                code
+            );
         }
     }
 
@@ -1011,7 +1031,8 @@ mod tests {
         let mut rng = ForgeryRng::new();
         rng.seed(42);
 
-        let transactions = generate_transactions(&mut rng, 100, 1000.0, "2024-01-01", "2024-12-31");
+        let transactions =
+            generate_transactions(&mut rng, 100, 1000.0, "2024-01-01", "2024-12-31").unwrap();
         assert_eq!(transactions.len(), 100);
     }
 
@@ -1020,7 +1041,8 @@ mod tests {
         let mut rng = ForgeryRng::new();
         rng.seed(42);
 
-        let transactions = generate_transactions(&mut rng, 10, 5000.0, "2024-01-01", "2024-03-31");
+        let transactions =
+            generate_transactions(&mut rng, 10, 5000.0, "2024-01-01", "2024-03-31").unwrap();
 
         for tx in &transactions {
             // Reference should be 8 alphanumeric chars
@@ -1033,13 +1055,23 @@ mod tests {
 
             // Date should be valid format
             assert_eq!(tx.date.len(), 10, "Date should be YYYY-MM-DD");
-            assert!(tx.date.starts_with("2024-"), "Date should be in 2024: {}", tx.date);
+            assert!(
+                tx.date.starts_with("2024-"),
+                "Date should be in 2024: {}",
+                tx.date
+            );
 
             // Transaction type should not be empty
-            assert!(!tx.transaction_type.is_empty(), "Transaction type should not be empty");
+            assert!(
+                !tx.transaction_type.is_empty(),
+                "Transaction type should not be empty"
+            );
 
             // Description should not be empty
-            assert!(!tx.description.is_empty(), "Description should not be empty");
+            assert!(
+                !tx.description.is_empty(),
+                "Description should not be empty"
+            );
         }
     }
 
@@ -1050,7 +1082,8 @@ mod tests {
 
         let starting_balance = 1000.0;
         let transactions =
-            generate_transactions(&mut rng, 50, starting_balance, "2024-01-01", "2024-06-30");
+            generate_transactions(&mut rng, 50, starting_balance, "2024-01-01", "2024-06-30")
+                .unwrap();
 
         // Verify running balance is calculated correctly
         let mut expected_balance = starting_balance;
@@ -1071,7 +1104,8 @@ mod tests {
         let mut rng = ForgeryRng::new();
         rng.seed(42);
 
-        let transactions = generate_transactions(&mut rng, 50, 1000.0, "2024-01-01", "2024-12-31");
+        let transactions =
+            generate_transactions(&mut rng, 50, 1000.0, "2024-01-01", "2024-12-31").unwrap();
 
         // Dates should be sorted
         for i in 1..transactions.len() {
@@ -1119,7 +1153,11 @@ mod tests {
         assert!(generate_bank_accounts(&mut rng, 0).is_empty());
         assert!(generate_sort_codes(&mut rng, 0).is_empty());
         assert!(generate_uk_account_numbers(&mut rng, 0).is_empty());
-        assert!(generate_transactions(&mut rng, 0, 1000.0, "2024-01-01", "2024-12-31").is_empty());
+        assert!(
+            generate_transactions(&mut rng, 0, 1000.0, "2024-01-01", "2024-12-31")
+                .unwrap()
+                .is_empty()
+        );
     }
 
     #[test]
@@ -1134,6 +1172,75 @@ mod tests {
         let c2 = generate_credit_cards(&mut rng2, 100);
 
         assert_ne!(c1, c2, "Different seeds should produce different cards");
+    }
+
+    #[test]
+    fn test_all_reference_chars_reachable() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        // Generate enough transactions to statistically hit all 36 chars (26 letters + 10 digits)
+        let transactions =
+            generate_transactions(&mut rng, 500, 1000.0, "2024-01-01", "2024-12-31").unwrap();
+        let mut seen = std::collections::HashSet::new();
+
+        for tx in &transactions {
+            for c in tx.reference.chars() {
+                seen.insert(c);
+            }
+        }
+
+        // Should have seen all 36 characters (26 letters + 10 digits)
+        assert_eq!(
+            seen.len(),
+            36,
+            "Should see all 36 reference chars, but only saw {} chars: {:?}",
+            seen.len(),
+            seen
+        );
+    }
+
+    #[test]
+    fn test_transaction_amounts_count() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let amounts = generate_transaction_amounts(&mut rng, 100, 0.0, 1000.0);
+        assert_eq!(amounts.len(), 100);
+    }
+
+    #[test]
+    fn test_single_transaction_amount() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        for _ in 0..100 {
+            let amount = generate_transaction_amount(&mut rng, 10.0, 100.0);
+            assert!((10.0..=100.0).contains(&amount));
+            // Check 2 decimal place precision
+            assert_eq!(amount, (amount * 100.0).round() / 100.0);
+        }
+    }
+
+    #[test]
+    fn test_single_uk_account_number() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let account = generate_uk_account_number(&mut rng);
+        assert_eq!(account.len(), 8);
+        assert!(account.chars().all(|c| c.is_ascii_digit()));
+    }
+
+    #[test]
+    fn test_single_sort_code() {
+        let mut rng = ForgeryRng::new();
+        rng.seed(42);
+
+        let code = generate_sort_code(&mut rng);
+        assert_eq!(code.len(), 8);
+        assert_eq!(&code[2..3], "-");
+        assert_eq!(&code[5..6], "-");
     }
 }
 

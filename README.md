@@ -192,6 +192,31 @@ fake2.emails(100)
 |-------|--------|-------------|
 | `credit_cards(n)` | `credit_card()` | Credit card numbers (valid Luhn) |
 | `ibans(n)` | `iban()` | IBAN numbers (valid checksum) |
+| `bics(n)` | `bic()` | BIC/SWIFT codes (8 or 11 characters) |
+| `bank_accounts(n)` | `bank_account()` | Bank account numbers (8-17 digits) |
+| `bank_names(n)` | `bank_name()` | Bank names (locale-specific) |
+
+### UK Banking
+
+| Batch | Single | Description |
+|-------|--------|-------------|
+| `sort_codes(n)` | `sort_code()` | UK sort codes (XX-XX-XX format) |
+| `uk_account_numbers(n)` | `uk_account_number()` | UK account numbers (exactly 8 digits) |
+| `transaction_amounts(n, min, max)` | `transaction_amount(min, max)` | Transaction amounts (2 decimal places) |
+| `transactions(n, balance, start, end)` | - | Full transaction records with running balance |
+
+### Passwords
+
+| Batch | Single | Description |
+|-------|--------|-------------|
+| `passwords(n, ...)` | `password(...)` | Random passwords with configurable character sets |
+
+Password options:
+- `length`: Password length (default: 12)
+- `uppercase`: Include uppercase letters (default: True)
+- `lowercase`: Include lowercase letters (default: True)
+- `digits`: Include digits (default: True)
+- `symbols`: Include symbols (default: True)
 
 ### Text & Lorem Ipsum
 
@@ -208,6 +233,57 @@ fake2.emails(100)
 | `colors(n)` | `color()` | Color names |
 | `hex_colors(n)` | `hex_color()` | Hex color codes (#RRGGBB) |
 | `rgb_colors(n)` | `rgb_color()` | RGB tuples (r, g, b) |
+
+## Unique Value Generation
+
+For batch methods that select from finite lists (names, cities, countries, bank names, etc.), you can request unique values:
+
+```python
+from forgery import Faker
+
+fake = Faker()
+fake.seed(42)
+
+# Generate 50 unique names (no duplicates)
+unique_names = fake.names(50, unique=True)
+assert len(unique_names) == len(set(unique_names))
+
+# Generate 10 unique bank names
+unique_banks = fake.bank_names(10, unique=True)
+
+# Generate 20 unique cities
+unique_cities = fake.cities(20, unique=True)
+```
+
+**Note:** Unique generation will raise `ValueError` if you request more unique values than are available in the underlying data set.
+
+## Financial Transaction Generation
+
+Generate realistic bank transaction data with running balances:
+
+```python
+from forgery import Faker
+
+fake = Faker()
+fake.seed(42)
+
+# Generate 50 transactions from Jan to Mar 2024, starting with £1000 balance
+txns = fake.transactions(50, 1000.0, "2024-01-01", "2024-03-31")
+
+for txn in txns[:3]:
+    print(f"{txn['date']} | {txn['transaction_type']:15} | {txn['amount']:>10.2f} | {txn['balance']:>10.2f}")
+# 2024-01-03 | Card Payment    |    -42.50 |     957.50
+# 2024-01-05 | Direct Debit    |   -125.00 |     832.50
+# 2024-01-08 | Faster Payment  |   1250.00 |    2082.50
+```
+
+Each transaction dict contains:
+- `reference`: 8-character alphanumeric reference
+- `date`: Transaction date (YYYY-MM-DD)
+- `amount`: Transaction amount (negative for debits)
+- `transaction_type`: e.g., "Card Payment", "Direct Debit", "Salary"
+- `description`: Merchant or payee name
+- `balance`: Running balance after transaction
 
 ## Structured Data Generation
 

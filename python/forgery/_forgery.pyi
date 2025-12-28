@@ -589,9 +589,7 @@ class Faker:
         """
         ...
 
-    def transaction_amount(
-        self, min: builtins.float, max: builtins.float
-    ) -> builtins.float:
+    def transaction_amount(self, min: builtins.float, max: builtins.float) -> builtins.float:
         """Generate a single transaction amount.
 
         Args:

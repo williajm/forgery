@@ -1,6 +1,7 @@
 """Tests for new features: passwords, banking, unique values, and UK banking."""
 
 import pytest
+
 from forgery import (
     Faker,
     bank_account,
@@ -362,7 +363,14 @@ class TestTransactionGeneration:
     def test_transactions_have_all_fields(self) -> None:
         """Test that transactions have all required fields."""
         txns = transactions(5, 1000.0, "2024-01-01", "2024-01-31")
-        required_fields = ["reference", "date", "amount", "transaction_type", "description", "balance"]
+        required_fields = [
+            "reference",
+            "date",
+            "amount",
+            "transaction_type",
+            "description",
+            "balance",
+        ]
         for txn in txns:
             for field in required_fields:
                 assert field in txn
@@ -477,3 +485,87 @@ class TestUKBankingConvenienceFunctions:
         """Test transaction_amounts convenience function."""
         amounts = transaction_amounts(10, 10.0, 100.0)
         assert len(amounts) == 10
+
+
+class TestEdgeCases:
+    """Edge case tests for new features."""
+
+    def test_empty_batch_passwords(self) -> None:
+        """Test generating 0 passwords."""
+        pwds = passwords(0)
+        assert len(pwds) == 0
+
+    def test_empty_batch_sort_codes(self) -> None:
+        """Test generating 0 sort codes."""
+        codes = sort_codes(0)
+        assert len(codes) == 0
+
+    def test_empty_batch_uk_account_numbers(self) -> None:
+        """Test generating 0 UK account numbers."""
+        accounts = uk_account_numbers(0)
+        assert len(accounts) == 0
+
+    def test_empty_batch_transactions(self) -> None:
+        """Test generating 0 transactions."""
+        txns = transactions(0, 1000.0, "2024-01-01", "2024-01-31")
+        assert len(txns) == 0
+
+    def test_empty_batch_bics(self) -> None:
+        """Test generating 0 BICs."""
+        codes = bics(0)
+        assert len(codes) == 0
+
+    def test_empty_batch_bank_accounts(self) -> None:
+        """Test generating 0 bank accounts."""
+        accounts = bank_accounts(0)
+        assert len(accounts) == 0
+
+    def test_empty_batch_bank_names(self) -> None:
+        """Test generating 0 bank names."""
+        names = bank_names(0)
+        assert len(names) == 0
+
+    def test_transaction_invalid_date_range(self) -> None:
+        """Test that invalid date range raises an error."""
+        fake = Faker()
+        # End date before start date should raise ValueError
+        with pytest.raises(ValueError, match="date"):
+            fake.transactions(10, 1000.0, "2024-12-31", "2024-01-01")
+
+    def test_transaction_same_day_range(self) -> None:
+        """Test transactions with same start and end date."""
+        fake = Faker()
+        fake.seed(42)
+        txns = fake.transactions(5, 1000.0, "2024-06-15", "2024-06-15")
+        assert len(txns) == 5
+        # All transactions should be on the same date
+        for txn in txns:
+            assert txn["date"] == "2024-06-15"
+
+    def test_password_minimum_length(self) -> None:
+        """Test password with minimum length of 1."""
+        pwd = password(length=1)
+        assert len(pwd) == 1
+
+    def test_password_zero_length(self) -> None:
+        """Test password with length 0 returns empty string."""
+        pwd = password(length=0)
+        assert len(pwd) == 0
+
+    def test_transaction_negative_starting_balance(self) -> None:
+        """Test transactions with negative starting balance."""
+        fake = Faker()
+        fake.seed(42)
+        txns = fake.transactions(5, -500.0, "2024-01-01", "2024-01-31")
+        assert len(txns) == 5
+        # First transaction should adjust from -500
+
+    def test_transaction_large_batch(self) -> None:
+        """Test generating a large batch of transactions."""
+        fake = Faker()
+        fake.seed(42)
+        txns = fake.transactions(1000, 10000.0, "2024-01-01", "2024-12-31")
+        assert len(txns) == 1000
+        # Verify dates are sorted
+        dates = [t["date"] for t in txns]
+        assert dates == sorted(dates)
