@@ -13,7 +13,11 @@ A high-performance fake data generation library for Python, powered by Rust. Des
 ## Installation
 
 ```bash
-pip install forgery
+# Clone and install from source
+git clone https://github.com/williajm/forgery.git
+cd forgery
+pip install maturin
+maturin develop --release
 ```
 
 ## Quick Start
